@@ -1,0 +1,11 @@
+{
+  "status": "failed",
+  "checks": [
+    "unauthenticated doctor page redirects to login"
+  ],
+  "errors": [],
+  "failure": "page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation to \"**/doctor\" until \"load\"\n============================================================",
+  "url": "http://127.0.0.1:3000/login",
+  "executed_at": "2026-10-26T12:40:43.256Z",
+  "scope": "real Chromium and local production application; no microphone/provider calls"
+}

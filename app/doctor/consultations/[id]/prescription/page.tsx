@@ -16,57 +16,6 @@ function clean(value: unknown) {
   return String(value ?? "").trim();
 }
 
-function normalizeText(value: unknown) {
-  return clean(value)
-    .toLowerCase()
-    .replace(/[,.;]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function extractCountNearPhrase(text: string, phrase: string): number {
-  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const direct = text.match(new RegExp(`(?:^|\\s)(\\d+)\\s*(?:tab|tablet|cap|capsule|ml|drop|drops)?\\s*(?:-)?\\s*(?:before|after)?\\s*${escaped}(?:$|\\s)`));
-  if (direct?.[1]) return Number(direct[1]) || 1;
-
-  const reverse = text.match(new RegExp(`${escaped}\\s*(?:-)?\\s*(\\d+)\\b`));
-  if (reverse?.[1]) return Number(reverse[1]) || 1;
-
-  return 1;
-}
-
-function inferDoseNotation(med: any): string | null {
-  const combined = normalizeText(`${clean(med?.frequency)} ${clean(med?.instructions)}`);
-  if (!combined) return null;
-
-  const explicit = combined.match(/\b(\d+)\s*[-/]\s*(\d+)\s*[-/]\s*(\d+)\b/);
-  if (explicit) return `${explicit[1]}-${explicit[2]}-${explicit[3]}`;
-
-  let morning = 0;
-  let afternoon = 0;
-  let night = 0;
-
-  if (/breakfast|morning|after waking/.test(combined)) {
-    morning = extractCountNearPhrase(combined, "breakfast");
-  }
-  if (/lunch|afternoon|noon/.test(combined)) {
-    afternoon = extractCountNearPhrase(combined, "lunch");
-  }
-  if (/dinner|night|bedtime|evening/.test(combined)) {
-    night = extractCountNearPhrase(combined, "dinner");
-  }
-
-  if (morning || afternoon || night) {
-    return `${morning}-${afternoon}-${night}`;
-  }
-
-  if (/once (a )?day|once daily|daily once|od\b/.test(combined)) return "1-0-0";
-  if (/twice (a )?day|twice daily|bid\b/.test(combined)) return "1-0-1";
-  if (/thrice (a )?day|three times (a )?day|tid\b/.test(combined)) return "1-1-1";
-
-  return null;
-}
-
 async function fetchPrescriptionData(id: string) {
   const { db, session } = await getServerContext();
   const doctorObjectId = new ObjectId(session.uid);
@@ -76,25 +25,27 @@ async function fetchPrescriptionData(id: string) {
     db.collection("users").findOne({ _id: doctorObjectId }),
   ]);
 
-  if (!consultation) return null;
+  if (!consultation || consultation.status !== "completed") return null;
 
-  const [patient, emrEntry] = await Promise.all([
-    consultation.patient_id ? db.collection("patients").findOne({ _id: consultation.patient_id, doctor_id: doctorObjectId }) : null,
-    db.collection("emr_entries").findOne({ consultation_id: consultation._id }),
+  const [patient, prescription] = await Promise.all([
+    consultation.patient_id ? db.collection("patients").findOne({ _id: consultation.patient_id }) : null,
+    db.collection("prescriptions").findOne({ consultation_id: consultation._id, doctor_id: doctorObjectId, patient_id: consultation.patient_id }),
   ]);
 
-  const snapshot = emrEntry?.snapshot ?? {};
+  if (!prescription || !Number.isSafeInteger(prescription.approved_emr_version) ||
+      !prescription.approved_snapshot_fingerprint || !prescription.reviewed_by || !prescription.reviewed_at) return null;
 
   return {
     consultation,
     patient,
     doctor,
-    snapshot,
+    prescription,
   };
 }
 
 export default async function PrescriptionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!ObjectId.isValid(id)) notFound();
   const data = await fetchPrescriptionData(id);
   if (!data) notFound();
 
@@ -103,10 +54,9 @@ export default async function PrescriptionPage({ params }: { params: Promise<{ i
   const clinicPhone = clean(data.doctor?.clinic_phone);
   const registrationNumber = clean(data.doctor?.registration_number);
   const doctorName = clean(data.doctor?.doctor_name) || clean(data.doctor?.name) || "Doctor";
-  const diagnosisList = Array.isArray(data.snapshot?.diagnosis_text) ? data.snapshot.diagnosis_text.map((item: unknown) => clean(item)).filter(Boolean) : [];
-  const diagnosis = diagnosisList[0] || clean(data.snapshot?.chief_complaint) || "Diagnosis";
-  const diagnosisIcd = Array.isArray(data.snapshot?.diagnosis_icd) ? data.snapshot.diagnosis_icd : [];
-  const medications = Array.isArray(data.snapshot?.medications) ? data.snapshot.medications : [];
+  const diagnosisList = Array.isArray(data.prescription?.diagnosis_text) ? data.prescription.diagnosis_text.map((item: unknown) => clean(item)).filter(Boolean) : [];
+  const diagnosis = diagnosisList.join("; ") || "No diagnosis recorded";
+  const medications = Array.isArray(data.prescription?.medications) ? data.prescription.medications : [];
 
   return (
     <div className="mx-auto max-w-5xl bg-[hsl(var(--bg-primary))] px-4 py-4 text-[hsl(var(--text-primary))] print:max-w-none print:px-0 print:py-0">
@@ -147,14 +97,6 @@ export default async function PrescriptionPage({ params }: { params: Promise<{ i
           <div className="mt-4 border-t border-black/20 pt-3">
             <div className="text-sm font-semibold uppercase tracking-wide">Diagnosis</div>
             <div className="mt-1 text-base font-semibold">{diagnosis}</div>
-            {diagnosisIcd.length > 0 ? (
-              <div className="mt-1 text-sm text-black/70">
-                {diagnosisIcd
-                  .map((item: any) => `${clean(item.icd10_code)}${clean(item.icd10_description) ? ` - ${clean(item.icd10_description)}` : ""}`)
-                  .filter(Boolean)
-                  .join("; ")}
-              </div>
-            ) : null}
           </div>
 
           <div className="mt-4 border-t border-black/20 pt-3">
@@ -172,32 +114,22 @@ export default async function PrescriptionPage({ params }: { params: Promise<{ i
               </thead>
               <tbody>
                 {medications.map((med: any, index: number) => (
-                  (() => {
-                    const notation = inferDoseNotation(med);
-                    return (
-                      <tr key={`${clean(med.name)}-${index}`} className="border-b border-black/10 align-top">
-                        <td className="py-2 pr-2">{index + 1}</td>
-                        <td className="py-2 pr-2 font-semibold uppercase">{clean(med.name)}</td>
-                        <td className="py-2 pr-2">
-                          {notation ? <div className="font-semibold tracking-wide">{notation}</div> : null}
-                          <div>{clean(med.dosage) || "-"}</div>
-                        </td>
-                        <td className="py-2 pr-2">{clean(med.frequency) || "-"}</td>
-                        <td className="py-2 pr-2">{clean(med.duration) || "-"}</td>
-                        <td className="py-2 pr-2">{[clean(med.route), clean(med.instructions)].filter(Boolean).join(" - ") || "-"}</td>
-                      </tr>
-                    );
-                  })()
+                  <tr key={`${clean(med.name)}-${index}`} className="border-b border-black/10 align-top">
+                    <td className="py-2 pr-2">{index + 1}</td>
+                    <td className="py-2 pr-2 font-semibold uppercase">{clean(med.name)}</td>
+                    <td className="py-2 pr-2">
+                      <div>{clean(med.dosage) || "-"}</div>
+                    </td>
+                    <td className="py-2 pr-2">{clean(med.frequency) || "-"}</td>
+                    <td className="py-2 pr-2">{clean(med.duration) || "-"}</td>
+                    <td className="py-2 pr-2">{[clean(med.route), clean(med.instructions)].filter(Boolean).join(" - ") || "-"}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 border-t border-black/20 pt-3 sm:grid-cols-2">
-            <div>
-              <div className="text-sm font-semibold uppercase tracking-wide">Advice</div>
-              <div className="mt-1 text-sm">Take medicines as prescribed. Complete the ordered tests and return for review if symptoms worsen.</div>
-            </div>
+          <div className="mt-4 border-t border-black/20 pt-3">
             <div className="text-right">
               <div className="mt-8 text-sm font-semibold">{doctorName}</div>
               <div className="text-sm">Signature / Stamp</div>

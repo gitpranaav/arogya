@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "kind": "offline_synthetic_only",
+  "fixture_sha256": "cb6fb531ee6de4229d580986eb7d51773fa3d5508637a093c8ea83a30cf04d85",
+  "baseline_historical": {
+    "date": "2026-10-07",
+    "transcript": {
+      "precision": 0.75,
+      "recall": 0.6
+    },
+    "medications": {
+      "precision": 1,
+      "recall": 0.7142857142857143
+    },
+    "description": "Recorded in original baseline branch; not re-run against its old implementation"
+  },
+  "current": {
+    "transcript": {
+      "total": 20,
+      "tp": 5,
+      "fp": 0,
+      "fn": 5,
+      "tn": 10,
+      "precision": 1,
+      "recall": 0.5
+    },
+    "medications": {
+      "total": 16,
+      "tp": 4,
+      "fp": 0,
+      "fn": 3,
+      "tn": 9,
+      "precision": 1,
+      "recall": 0.5714285714285714
+    },
+    "detector_local_p50_ms": 0.01,
+    "detector_local_p95_ms": 0.232,
+    "grounding": {
+      "cases": 4,
+      "passed": 4
+    },
+    "family": {
+      "total": 4,
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "tn": 2,
+      "precision": 1,
+      "recall": 1
+    },
+    "failures": [
+      {
+        "path": "transcript",
+        "case": "fragmented-penicillin",
+        "expected": true,
+        "actual": false
+      },
+      {
+        "path": "transcript",
+        "case": "fragmented-penicillin",
+        "expected": true,
+        "actual": false
+      },
+      {
+        "path": "transcript",
+        "case": "fragmented-penicillin",
+        "expected": true,
+        "actual": false
+      },
+      {
+        "path": "medication",
+        "case": "fragmented-penicillin",
+        "expected": true,
+        "actual": false
+      },
+      {
+        "path": "transcript",
+        "case": "sulfa-prescription",
+        "expected": true,
+        "actual": false
+      },
+      {
+        "path": "medication",
+        "case": "sulfa-prescription",
+        "expected": true,
+        "actual": false
+      },
+      {
+        "path": "transcript",
+        "case": "opioid-direct-match",
+        "expected": true,
+        "actual": false
+      },
+      {
+        "path": "medication",
+        "case": "opioid-direct-match",
+        "expected": true,
+        "actual": false
+      }
+    ]
+  },
+  "batching": {
+    "synthetic_finalized_segments": 24,
+    "unbatched_logical_calls": 24,
+    "stage6_scheduled_calls": 8,
+    "request_reduction_pct": 66.7,
+    "baseline_example_request_chars": 10060,
+    "compact_example_request_chars": 590,
+    "prompt_char_reduction_pct": 94.1
+  },
+  "provider": {
+    "transcription_wer": null,
+    "groq_calls": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "estimated_cost_usd": null,
+    "provider_p50_ms": null,
+    "provider_p95_ms": null,
+    "audio_to_alert_p95_ms": null,
+    "recovery_time_ms": null
+  },
+  "notes": [
+    "Development fixture labels, not clinician-reviewed held-out data.",
+    "Transcript positive means prescribing-intent warning; generic mentions do not count.",
+    "Local processing timings use Node, not audio/WebSocket/browser time.",
+    "Character/4 token estimates are not provider tokens.",
+    "No live provider, browser, MongoDB or end-to-end workflow executed."
+  ]
+}

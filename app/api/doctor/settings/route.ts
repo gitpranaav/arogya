@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { getServerSession } from "@/src/lib/auth/session";
 import { getDb } from "@/src/lib/mongodb/client";
+import { parseBoundedJson } from "@/src/lib/security/access";
 
 export async function GET() {
   const session = await getServerSession();
@@ -29,22 +30,15 @@ export async function PATCH(request: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (String(session.role) !== "doctor") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const body = (await request.json()) as {
-    clinic_name?: string;
-    clinic_address?: string;
-    clinic_phone?: string;
-    registration_number?: string;
-    doctor_name?: string;
-  };
-
-  const payload = {
-    clinic_name: String(body.clinic_name ?? "").trim(),
-    clinic_address: String(body.clinic_address ?? "").trim(),
-    clinic_phone: String(body.clinic_phone ?? "").trim(),
-    registration_number: String(body.registration_number ?? "").trim(),
-    doctor_name: String(body.doctor_name ?? "").trim(),
-    updated_at: new Date().toISOString(),
-  };
+  let body: Record<string, unknown>;
+  try { body = await parseBoundedJson(request, 8 * 1024) as Record<string, unknown>; }
+  catch { return NextResponse.json({ error: "Invalid doctor settings" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Invalid settings" }, { status: 400 });
+  const allowed = new Set(["clinic_name", "clinic_address", "clinic_phone", "registration_number", "doctor_name"]);
+  if (Object.keys(body).some(k => !allowed.has(k) || typeof body[k] !== "string" || body[k].length > (k === "clinic_address" ? 1000 : 200)))
+    return NextResponse.json({ error: "Invalid settings field" }, { status: 400 });
+  const payload: Record<string, string> = { updated_at: new Date().toISOString() };
+  for (const [key, value] of Object.entries(body)) payload[key] = (value as string).trim();
 
   const db = await getDb();
   await db.collection("users").updateOne({ _id: new ObjectId(session.uid) }, { $set: payload });

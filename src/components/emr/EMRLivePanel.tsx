@@ -64,6 +64,8 @@ type MedicationHit = {
   default_strength?: string | null;
   default_route?: string | null;
   aliases?: string[] | null;
+  ingredients?: string[] | null;
+  catalog_version?: string | null;
 };
 
 function MedicationIcdLookup({
@@ -215,7 +217,7 @@ function MedicationAutocompleteInput({
                   >
                     <span className="font-medium text-[hsl(var(--text-primary))]">{hit.name}</span>
                     <span className="text-[hsl(var(--text-muted))]">
-                      {hit.generic_name || hit.default_strength || hit.default_route ? [hit.generic_name, hit.default_strength, hit.default_route].filter(Boolean).join(" · ") : "Common medicine"}
+                      {hit.generic_name || hit.default_strength || hit.default_route ? [hit.ingredients?.length ? `Ingredients: ${hit.ingredients.join(", ")}` : hit.generic_name, hit.default_strength, hit.default_route].filter(Boolean).join(" · ") : "Ingredient identity not available"}
                     </span>
                   </button>
                 </li>
@@ -232,12 +234,18 @@ export function EMRLivePanel({
   consultationId,
   snapshot,
   onChangeSnapshot,
+  version,
+  onSaved,
+  onDirtyChange,
   patientAllergies = [],
   liveAllergyAlert,
 }: {
   consultationId: string;
   snapshot: EMRSnapshot;
   onChangeSnapshot: (next: EMRSnapshot) => void;
+  version: number;
+  onSaved: (nextVersion: number) => void;
+  onDirtyChange: (dirty: boolean) => void;
   /** Core allergies from patient history (for interaction warnings). */
   patientAllergies?: string[];
   /** Real-time alert generated from live transcript mentions. */
@@ -248,10 +256,23 @@ export function EMRLivePanel({
   const [dismissedAllergyBanner, setDismissedAllergyBanner] = useState<string | null>(null);
   const [bpDraft, setBpDraft] = useState(formatBloodPressure(snapshot.vitals));
   const debounceRef = useRef<number | null>(null);
+  const dirtyRef = useRef(false);
+  // Track edits independently of network completion: an earlier autosave
+  // must not clear the dirty flag for a newer unsaved clinical change.
+  const editRevisionRef = useRef(0);
+  const saveInFlightRef = useRef(false);
+  const versionRef = useRef(version);
+  versionRef.current = version;
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
   const onChangeRef = useRef(onChangeSnapshot);
   onChangeRef.current = onChangeSnapshot;
+  const userEdit = (next: EMRSnapshot) => {
+    editRevisionRef.current += 1;
+    dirtyRef.current = true;
+    onDirtyChange(true);
+    onChangeRef.current(next);
+  };
 
   useEffect(() => {
     setBpDraft(formatBloodPressure(snapshot.vitals));
@@ -259,22 +280,39 @@ export function EMRLivePanel({
 
   const medications = snapshot.medications?.length ? snapshot.medications : [emptyMedication()];
 
-  const payload = useMemo(() => ({ snapshot }), [snapshot]);
+
 
   useEffect(() => {
+    if (!dirtyRef.current) return; // AI/server snapshot updates are not manual edits.
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
     debounceRef.current = window.setTimeout(async () => {
-      const res = await fetch(`/api/emr/by-consultation/${consultationId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      setSaveText(res.ok ? `Saved ${new Date().toLocaleTimeString("en-IN")}` : "Save failed");
+      if (saveInFlightRef.current || !dirtyRef.current) return;
+      saveInFlightRef.current = true;
+      const captured = snapshotRef.current;
+      const capturedRevision = editRevisionRef.current;
+      try {
+        const res = await fetch(`/api/emr/by-consultation/${consultationId}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ snapshot: captured, expected_version: versionRef.current }),
+        });
+        if (!res.ok) { setSaveText(res.status === 409 ? "Concurrent change — reload EMR before continuing" : "Save failed"); return; }
+        const saved = await res.json();
+        if (!Number.isInteger(saved.version)) throw new Error("Invalid save response");
+        versionRef.current = saved.version;
+        onSaved(saved.version);
+        if (editRevisionRef.current === capturedRevision) {
+          dirtyRef.current = false;
+          onDirtyChange(false);
+          setSaveText(`Saved ${new Date().toLocaleTimeString("en-IN")}`);
+        } else {
+          // The parent version change triggers another save of the newer edit.
+          setSaveText("Saving newer edits…");
+        }
+      } catch { setSaveText("Save failed — verify connection"); }
+      finally { saveInFlightRef.current = false; }
     }, 1200);
-    return () => {
-      if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    };
-  }, [consultationId, payload]);
+    return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current); };
+  }, [consultationId, snapshot, version]);
 
   const medSignature = useMemo(
     () =>
@@ -333,16 +371,11 @@ export function EMRLivePanel({
         }
 
         if (cancelled) return;
-        let hit: IcdHit | undefined;
-        const res = await fetch(`/api/icd/search?q=${encodeURIComponent(diagnosis)}&limit=1`);
-        const data = (await res.json()) as { codes?: IcdHit[] };
-        if (data.codes?.[0]) hit = data.codes[0];
-
         nextRows.push({
           diagnosis,
-          icd10_code: hit?.code ?? "",
-          icd10_description: hit?.description ?? "",
-          confidence: hit ? "low" : undefined,
+          icd10_code: "",
+          icd10_description: "",
+          confidence: undefined,
         });
         changed = true;
       }
@@ -360,39 +393,38 @@ export function EMRLivePanel({
   }, [diagnosisIcdSig, diagnosisItems]);
 
   const setMeds = (next: EMRMedication[]) => {
-    onChangeSnapshot({
+    userEdit({
       ...snapshot,
       medications: next.length ? next : [emptyMedication()],
     });
   };
 
-  const combinedAllergyBanner = [liveAllergyAlert, allergyBanner].filter(Boolean).join(" · ");
-  const visibleAllergyBanner = combinedAllergyBanner && dismissedAllergyBanner !== combinedAllergyBanner ? combinedAllergyBanner : null;
+  // Conversation mentions are provisional; prescription conflicts require a separate
+  // server-enforced doctor acknowledgement and are never cleared by UI dismissal.
+  const visibleSpeechBanner = liveAllergyAlert && dismissedAllergyBanner !== liveAllergyAlert ? liveAllergyAlert : null;
 
   useEffect(() => {
-    if (!combinedAllergyBanner && dismissedAllergyBanner) {
+    if (!liveAllergyAlert && dismissedAllergyBanner) {
       setDismissedAllergyBanner(null);
     }
-  }, [combinedAllergyBanner, dismissedAllergyBanner]);
+  }, [liveAllergyAlert, dismissedAllergyBanner]);
 
   return (
     <div className="flex min-h-0 w-full min-w-0 flex-col gap-3 pb-1 text-[hsl(var(--text-secondary))]">
-      {visibleAllergyBanner ? (
-        <div
-          className="shrink-0 rounded-[var(--radius)] border border-[hsl(var(--danger))] bg-[hsl(var(--danger)/0.12)] px-3 py-2 text-xs font-medium text-[hsl(var(--danger))]"
-          role="alert"
-        >
+      {visibleSpeechBanner ? (
+        <div className="shrink-0 rounded-[var(--radius)] border border-[hsl(var(--warning))] bg-[hsl(var(--warning)/0.10)] px-3 py-2 text-xs font-medium text-[hsl(var(--text-primary))]" role="status">
           <div className="flex items-start justify-between gap-2">
-            <p className="min-w-0 flex-1">{visibleAllergyBanner}</p>
-            <button
-              type="button"
-              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[hsl(var(--danger)/0.3)] text-[hsl(var(--danger))] transition-colors hover:bg-[hsl(var(--danger)/0.12)]"
-              aria-label="Dismiss allergy alert"
-              onClick={() => setDismissedAllergyBanner(visibleAllergyBanner)}
-            >
+            <p className="min-w-0 flex-1"><strong>Provisional conversation check:</strong> {visibleSpeechBanner}</p>
+            <button type="button" className="shrink-0 rounded-full border px-2 py-1 text-xs" aria-label="Dismiss provisional speech alert" onClick={() => setDismissedAllergyBanner(visibleSpeechBanner)}>
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
+        </div>
+      ) : null}
+      {allergyBanner ? (
+        <div className="shrink-0 rounded-[var(--radius)] border border-[hsl(var(--danger))] bg-[hsl(var(--danger)/0.12)] px-3 py-2 text-xs font-medium text-[hsl(var(--danger))]" role="alert">
+          <strong>Prescription safety review required:</strong> {allergyBanner}
+          <p className="mt-1 font-normal">This warning cannot be dismissed here; it requires doctor review and recorded acknowledgement.</p>
         </div>
       ) : null}
       {/* Vitals */}
@@ -417,7 +449,7 @@ export function EMRLivePanel({
                   setBpDraft(formatBloodPressure(snapshot.vitals));
                   return;
                 }
-                onChangeSnapshot({
+                userEdit({
                   ...snapshot,
                   vitals: { ...(snapshot.vitals ?? {}), ...next },
                 });
@@ -444,7 +476,7 @@ export function EMRLivePanel({
                   className={cn(inputCls, "h-8 text-xs")}
                   value={value ?? ""}
                   onChange={(e) =>
-                    onChangeSnapshot({
+                    userEdit({
                       ...snapshot,
                       vitals: { ...(snapshot.vitals ?? {}), [key]: Number(e.target.value) || null },
                     })
@@ -469,7 +501,7 @@ export function EMRLivePanel({
               className={textareaCls}
               rows={2}
               value={snapshot.chief_complaint ?? ""}
-              onChange={(e) => onChangeSnapshot({ ...snapshot, chief_complaint: e.target.value })}
+              onChange={(e) => userEdit({ ...snapshot, chief_complaint: e.target.value })}
               placeholder="—"
             />
           </div>
@@ -482,7 +514,7 @@ export function EMRLivePanel({
               className={inputCls}
               value={normalizeArray(snapshot.symptoms).join(", ")}
               onChange={(e) =>
-                onChangeSnapshot({
+                userEdit({
                   ...snapshot,
                   symptoms: e.target.value
                     .split(",")
@@ -501,7 +533,7 @@ export function EMRLivePanel({
               className={inputCls}
               value={normalizeArray(snapshot.diagnosis_text).join(", ")}
               onChange={(e) =>
-                onChangeSnapshot({
+                userEdit({
                   ...snapshot,
                   diagnosis_text: e.target.value
                     .split(",")
@@ -520,7 +552,7 @@ export function EMRLivePanel({
               className={inputCls}
               value={normalizeArray(snapshot.lab_tests_ordered).join(", ")}
               onChange={(e) =>
-                onChangeSnapshot({
+                userEdit({
                   ...snapshot,
                   lab_tests_ordered: e.target.value
                     .split(",")
@@ -546,7 +578,7 @@ export function EMRLivePanel({
               className={textareaCls}
               rows={2}
               value={snapshot.clinical_summary ?? ""}
-              onChange={(e) => onChangeSnapshot({ ...snapshot, clinical_summary: e.target.value })}
+              onChange={(e) => userEdit({ ...snapshot, clinical_summary: e.target.value })}
             />
           </div>
           <div className={fieldWrap}>
@@ -558,7 +590,7 @@ export function EMRLivePanel({
               className={textareaCls}
               rows={2}
               value={snapshot.patient_summary ?? ""}
-              onChange={(e) => onChangeSnapshot({ ...snapshot, patient_summary: e.target.value })}
+              onChange={(e) => userEdit({ ...snapshot, patient_summary: e.target.value })}
             />
           </div>
         </div>
@@ -594,7 +626,7 @@ export function EMRLivePanel({
             </thead>
             <tbody>
               {medications.map((med, index) => (
-                <tr key={index} className="border-t border-[hsl(var(--border))] bg-[hsl(var(--bg-card))]">
+                <tr key={med.id ?? index} className="border-t border-[hsl(var(--border))] bg-[hsl(var(--bg-card))]">
                   <td className="p-2 align-top">
                     <MedicationAutocompleteInput
                       value={med.name}
@@ -729,7 +761,7 @@ export function EMRLivePanel({
                       };
                       if (idx >= 0) existing[idx] = nextRow;
                       else existing.push(nextRow);
-                      onChangeSnapshot({ ...s2, diagnosis_icd: existing });
+                      userEdit({ ...s2, diagnosis_icd: existing });
                     }}
                     onClear={() => {
                       const s2 = snapshotRef.current;
@@ -745,7 +777,7 @@ export function EMRLivePanel({
                       };
                       if (idx >= 0) existing[idx] = nextRow;
                       else existing.push(nextRow);
-                      onChangeSnapshot({ ...s2, diagnosis_icd: existing });
+                      userEdit({ ...s2, diagnosis_icd: existing });
                     }}
                   />
                 </div>
@@ -758,7 +790,7 @@ export function EMRLivePanel({
 
       <div className="flex shrink-0 items-center justify-between border-t border-[hsl(var(--border))] pt-3">
         <p className="text-xs text-[hsl(var(--text-muted))]">{saveText}</p>
-        <Button variant="secondary" size="sm" className="h-8" onClick={() => onChangeSnapshot({})}>
+        <Button variant="secondary" size="sm" className="h-8" onClick={() => userEdit({})}>
           Clear EMR
         </Button>
       </div>

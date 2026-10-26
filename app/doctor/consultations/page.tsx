@@ -37,7 +37,7 @@ export default async function ConsultationsPage({ searchParams }: { searchParams
   const consultationIds = rows.map((row) => row._id);
   const doctorObjectId = new ObjectId(session.uid);
   const [patients, emrEntries] = await Promise.all([
-    patientIds.length ? db.collection("patients").find({ _id: { $in: patientIds }, doctor_id: doctorObjectId }).toArray() : [],
+    patientIds.length ? db.collection("patients").find({ _id: { $in: patientIds } }).toArray() : [],
     consultationIds.length ? db.collection("emr_entries").find({ consultation_id: { $in: consultationIds } }).toArray() : [],
   ]);
   const patientMap = new Map(patients.map((patient) => [patient._id.toString(), patient]));

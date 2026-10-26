@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.mjs",
     "start": "next start",
     "seed:core": "node scripts/seed/01_core.mjs",
     "seed:icd10": "node scripts/seed/02_icd10.mjs",
@@ -14,7 +16,14 @@
     "seed:backfill:patient_doctors": "node scripts/seed/05_backfill_patient_doctors.mjs",
     "seed:backfill:follow_up": "node scripts/seed/07_backfill_consultation_follow_up.mjs",
     "seed:demo:history": "node scripts/seed/06_history_demo.mjs",
-    "seed:all": "npm run seed:core && npm run seed:icd10 && npm run seed:medications && npm run seed:demo"
+    "seed:all": "npm run seed:core && npm run seed:icd10 && npm run seed:medications && npm run seed:demo",
+    "verify:mongo": "node scripts/verify-mongo.mjs",
+    "eval:stage9": "node scripts/eval-stage9.mjs",
+    "demo:seed": "node scripts/seed/demo-stage9.mjs",
+    "verify:stage9:api": "node scripts/verify-stage9-api.mjs",
+    "verify:system": "node scripts/verify-system.mjs",
+    "verify:browser": "node scripts/verify-browser.mjs",
+    "verify:providers": "node scripts/verify-providers.mjs"
   },
   "dependencies": {
     "@deepgram/sdk": "^5.0.0",

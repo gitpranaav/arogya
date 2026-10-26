@@ -17,6 +17,7 @@ export async function GET(_request: Request, { params }: Params) {
   const { id } = await params;
   const db = await getDb();
   const doctorObjectId = new ObjectId(session.uid);
+  if (!ObjectId.isValid(id)) return NextResponse.json({ error: "Invalid patient ID" }, { status: 400 });
   const patientObjectId = new ObjectId(id);
 
   const link = await db.collection("patient_doctors").findOne({ patient_id: patientObjectId, doctor_id: doctorObjectId });

@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { ObjectId, type Db } from "mongodb";
+import { ObjectId, type Db, type ClientSession } from "mongodb";
 
 export type AuditSource = "doctor_manual" | "receptionist_manual" | "ai_delta" | "ai_final" | "system";
 
@@ -14,9 +14,12 @@ export type LogConsultationAuditInput = {
   after?: unknown;
   metadata?: Record<string, unknown>;
   allowNoop?: boolean;
+  mongoSession?: ClientSession;
 };
 
-let indexesReady = false;
+// Cache index initialization per MongoClient/database, not process-wide. A
+// verification DB must never inherit another database's ready flag.
+const indexPromises = new WeakMap<object, Map<string, Promise<void>>>();
 
 function toObjectId(value: ObjectId | string | null | undefined) {
   if (!value) return null;
@@ -98,37 +101,51 @@ function collectChangedPaths(before: unknown, after: unknown, prefix = "", out =
 }
 
 async function ensureIndexes(db: Db) {
-  if (indexesReady) return;
-  const collection = db.collection("consultation_audit_events");
-  await Promise.all([
-    collection.createIndex({ consultation_id: 1, sequence_no: 1 }, { unique: true }),
-    collection.createIndex({ consultation_id: 1, created_at: -1 }),
-    collection.createIndex({ patient_id: 1, created_at: -1 }),
-    collection.createIndex({ actor_id: 1, created_at: -1 }),
-    collection.createIndex({ event_hash: 1 }, { unique: true }),
-  ]);
-  indexesReady = true;
+  let databases = indexPromises.get(db.client);
+  if (!databases) { databases = new Map(); indexPromises.set(db.client, databases); }
+  const name = db.databaseName;
+  if (!databases.has(name)) {
+    const pending = (async () => {
+      const collection = db.collection("consultation_audit_events");
+      await Promise.all([
+        collection.createIndex({ consultation_id: 1, sequence_no: 1 }, { unique: true }),
+        collection.createIndex({ consultation_id: 1, created_at: -1 }),
+        collection.createIndex({ patient_id: 1, created_at: -1 }),
+        collection.createIndex({ actor_id: 1, created_at: -1 }),
+        collection.createIndex({ event_hash: 1 }, { unique: true }),
+      ]);
+    })();
+    databases.set(name, pending);
+    // Failed initialization must be retryable after the DB/index issue is fixed.
+    pending.catch(() => { if (databases?.get(name) === pending) databases.delete(name); });
+  }
+  await databases.get(name);
 }
+
+export async function prepareAuditIndexes(db: Db) { await ensureIndexes(db); }
 
 export async function logConsultationAudit(db: Db, input: LogConsultationAuditInput) {
   const consultationId = toObjectId(input.consultationId);
-  if (!consultationId) return;
+  if (!consultationId) throw new Error("audit_consultation_id_invalid");
 
-  await ensureIndexes(db);
-
-  const collection = db.collection("consultation_audit_events");
-  const lastEvent = await collection.find({ consultation_id: consultationId }).sort({ sequence_no: -1 }).limit(1).next();
-
-  const sequenceNo = Number(lastEvent?.sequence_no ?? 0) + 1;
-  const prevHash = String(lastEvent?.event_hash ?? "");
-  const createdAt = new Date().toISOString();
+  // Audit-chain writes outside the clinical transaction could commit orphaned
+  // events or race with another writer. Never permit that fallback.
+  if (!input.mongoSession) throw new Error("audit_transaction_required");
   const beforePlain = toPlain(input.before);
   const afterPlain = toPlain(input.after);
   const changedPaths = Array.from(collectChangedPaths(beforePlain, afterPlain)).sort((a, b) => a.localeCompare(b));
+  if (!input.allowNoop && changedPaths.length === 0) return;
 
-  if (!input.allowNoop && changedPaths.length === 0) {
-    return;
-  }
+  const collection = db.collection("consultation_audit_events");
+  // The parent write serializes sequence and hash allocation under contention.
+  const claimed = await db.collection("consultations").updateOne({ _id: consultationId },
+    { $inc: { audit_revision: 1 } }, { session: input.mongoSession });
+  if (!claimed.matchedCount) throw new Error("audit_consultation_missing");
+  const lastEvent = await collection.find({ consultation_id: consultationId }, { session: input.mongoSession })
+    .sort({ sequence_no: -1 }).limit(1).next();
+  const sequenceNo = Number(lastEvent?.sequence_no ?? 0) + 1;
+  const prevHash = String(lastEvent?.event_hash ?? "");
+  const createdAt = new Date().toISOString();
 
   const patientId = toObjectId(input.patientId);
   const actorId = toObjectId(input.actorId);
@@ -165,5 +182,5 @@ export async function logConsultationAudit(db: Db, input: LogConsultationAuditIn
     changed_paths: changedPaths,
     metadata: input.metadata ?? null,
     created_at: createdAt,
-  });
+  }, { session: input.mongoSession });
 }

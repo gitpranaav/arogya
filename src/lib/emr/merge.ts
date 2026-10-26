@@ -1,6 +1,8 @@
 import type { EMRMedication, EMROp, EMRSnapshot } from "@/src/lib/emr/types";
 
 import { normalizeMedicationsArray } from "./normalizeMedications";
+import { createMedicationId, medicationIndexById, reconcileMedicationIds } from "./medicationIdentity";
+import { validFactPath, validFactValue } from "./validation";
 
 function ensureArray(value: unknown): unknown[] {
   if (Array.isArray(value)) return value;
@@ -93,7 +95,7 @@ function mergeMedicationIndex(root: EMRSnapshot, index: number, partial: Record<
   }
   const prev = root.medications[index] ?? emptyMedSlot();
   const coerced = coerceMedPartial(partial);
-  root.medications[index] = { ...prev, ...coerced } as EMRMedication;
+  root.medications[index] = { ...prev, ...coerced, id: prev.id ?? createMedicationId() } as EMRMedication;
 }
 
 export function applyEMROps(snapshot: EMRSnapshot | null | undefined, ops: EMROp[]) {
@@ -101,7 +103,28 @@ export function applyEMROps(snapshot: EMRSnapshot | null | undefined, ops: EMROp
   const needs = new Set<string>(ensureArray(next.needs_confirmation).filter((x) => typeof x === "string") as string[]);
 
   for (const op of ops ?? []) {
-    if (!op || typeof op !== "object") continue;
+    if (!op || typeof op !== "object" || !validFactPath(op.path)) continue;
+    if ((op.op === "set_fact" || op.op === "update_fact") && !validFactValue(op.path, op.value)) continue;
+    // ID-addressed operations never depend on array position, even after reordering.
+    const named = /^medications\[id=(med_[0-9a-f]{32})\](?:\.([a-z_]+))?$/.exec(op.path);
+    if (named) {
+      const index = medicationIndexById(next, named[1]);
+      if (index < 0) { needs.add(op.path); continue; }
+      const med = next.medications![index];
+      if (op.op === "mark_uncertain") needs.add(op.path);
+      else if (op.op === "retract_fact") needs.add(op.path); // clinical removals need explicit review
+      else if (named[2]) (med as unknown as Record<string, unknown>)[named[2]] = op.value;
+      else if (op.value && typeof op.value === "object" && !Array.isArray(op.value)) next.medications![index] = { ...med, ...coerceMedPartial(op.value as Record<string, unknown>), id: med.id };
+      if (op.op === "set_fact" || op.op === "update_fact") needs.delete(op.path);
+      continue;
+    }
+    if (op.path === "medications[+]") {
+      if ((op.op === "set_fact" || op.op === "update_fact") && op.value && typeof op.value === "object" && !Array.isArray(op.value) && (next.medications?.length ?? 0) < 40) {
+        next.medications ??= [];
+        next.medications.push({ ...emptyMedSlot(), ...coerceMedPartial(op.value as Record<string, unknown>), id: createMedicationId() });
+      } else needs.add(op.path);
+      continue;
+    }
     if (op.op === "set_fact" || op.op === "update_fact") {
       const medWhole = op.path.match(/^medications\[(\d+)\]$/);
       if (medWhole && op.value && typeof op.value === "object" && !Array.isArray(op.value)) {
@@ -110,8 +133,14 @@ export function applyEMROps(snapshot: EMRSnapshot | null | undefined, ops: EMROp
         continue;
       }
 
+      if (["symptoms", "diagnosis_text", "lab_tests_ordered"].includes(op.path) && Array.isArray(op.value)) {
+        const key = op.path as "symptoms" | "diagnosis_text" | "lab_tests_ordered";
+        next[key] = [...new Set([...(next[key] ?? []), ...op.value as string[]])].slice(0, 40);
+        needs.delete(op.path);
+        continue;
+      }
       if (op.op === "set_fact" && op.path === "medications" && Array.isArray(op.value)) {
-        next.medications = normalizeMedicationsArray(op.value);
+        next.medications = reconcileMedicationIds(next.medications ?? [], normalizeMedicationsArray(op.value));
         needs.delete(op.path);
         continue;
       }

@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "@/src/lib/auth/session";
 import { logConsultationAudit } from "@/src/lib/audit/consultationLedger";
 import { getDb } from "@/src/lib/mongodb/client";
+import { parseBoundedJson } from "@/src/lib/security/access";
+import { clinicalTransaction } from "@/src/lib/mongodb/clinicalTransaction";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -30,6 +32,7 @@ export async function GET(_request: Request, { params }: Params) {
   const { id } = await params;
   const db = await getDb();
   const doctorObjectId = new ObjectId(session.uid);
+  if (!ObjectId.isValid(id)) return NextResponse.json({ error: "Invalid patient ID" }, { status: 400 });
   const patientId = new ObjectId(id);
 
   const link = await db.collection("patient_doctors").findOne({ patient_id: patientId, doctor_id: doctorObjectId });
@@ -120,17 +123,27 @@ export async function GET(_request: Request, { params }: Params) {
 export async function PUT(request: Request, { params }: Params) {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["doctor", "receptionist"].includes(String(session.role))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  // Receptionists may capture intake but cannot rewrite longitudinal clinical history.
+  if (session.role !== "doctor") return NextResponse.json({ error: "Only doctors may edit clinical history" }, { status: 403 });
 
   const { id } = await params;
   const db = await getDb();
   const doctorObjectId = new ObjectId(session.uid);
+  if (!ObjectId.isValid(id)) return NextResponse.json({ error: "Invalid patient ID" }, { status: 400 });
   const patientId = new ObjectId(id);
 
   const link = await db.collection("patient_doctors").findOne({ patient_id: patientId, doctor_id: doctorObjectId });
   if (!link) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const body = (await request.json()) as { core?: Record<string, unknown>; specialty_history?: Record<string, unknown>; consultation_id?: string };
+  let body: { core?: Record<string, unknown>; specialty_history?: Record<string, unknown>; consultation_id?: string };
+  try { body = await parseBoundedJson(request, 32 * 1024) as typeof body; }
+  catch { return NextResponse.json({ error: "Invalid history payload" }, { status: 400 }); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ error: "Invalid history payload" }, { status: 400 });
+  if (body.consultation_id !== undefined) {
+    if (typeof body.consultation_id !== "string" || !ObjectId.isValid(body.consultation_id)) return NextResponse.json({ error: "Invalid consultation ID" }, { status: 400 });
+    const owner = await db.collection("consultations").findOne({ _id: new ObjectId(body.consultation_id), patient_id: patientId, doctor_id: doctorObjectId });
+    if (!owner || owner.status !== "active") return NextResponse.json({ error: "Consultation is not active or not owned by this practice" }, { status: 403 });
+  }
   const coreInput = sanitizeObject(body.core);
   const specialtyInput = sanitizeObject(body.specialty_history);
   const beforeHistory = await db.collection("patient_history").findOne({ patient_id: patientId });
@@ -138,85 +151,55 @@ export async function PUT(request: Request, { params }: Params) {
 
   const coreSet: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(coreInput)) {
-    if (!ALLOWED_CORE_KEYS.has(key)) continue;
+    if (!ALLOWED_CORE_KEYS.has(key)) return NextResponse.json({ error: "History field not permitted" }, { status: 400 });
+    if (JSON.stringify(value).length > 8000) return NextResponse.json({ error: "History field too large" }, { status: 413 });
+    if (["allergies", "problem_list", "past_surgeries", "immunizations", "active_meds"].includes(key) &&
+      (!Array.isArray(value) || value.length > 40 || value.some(x => typeof x !== "string" || x.length > 250)))
+      return NextResponse.json({ error: "Invalid clinical history list" }, { status: 400 });
     coreSet[`core.${key}`] = value;
   }
 
-  if (Object.keys(coreSet).length > 0) {
-    await db.collection("patient_history").updateOne(
-      { patient_id: patientId },
-      {
-        $set: {
-          ...coreSet,
-          updated_at: new Date().toISOString(),
-        },
-        $setOnInsert: {
-          patient_id: patientId,
-          created_at: new Date().toISOString(),
-        },
-      },
-      { upsert: true }
-    );
+  const specialtySet: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(specialtyInput)) {
+    if (!/^[a-z][a-z0-9_]{0,60}$/.test(key) || ["doctor_id", "patient_id", "specialty_code", "created_at", "updated_at"].includes(key))
+      return NextResponse.json({ error: "Invalid specialty history field" }, { status: 400 });
+    if (JSON.stringify(value).length > 8000) return NextResponse.json({ error: "Specialty history value too large" }, { status: 400 });
+    specialtySet[`data.${key}`] = value;
   }
-
-  if (Object.keys(specialtyInput).length > 0) {
-    const doctor = await db.collection("users").findOne({ _id: doctorObjectId }, { projection: { specialty_code: 1 } });
-    const specialtyCode = String((doctor as any)?.specialty_code ?? "general");
-    const specialtySet: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(specialtyInput)) {
-      specialtySet[`data.${key}`] = value;
-    }
-
-    await db.collection("patient_specialty_history").updateOne(
-      {
-        patient_id: patientId,
-        doctor_id: doctorObjectId,
-        specialty_code: specialtyCode,
-      },
-      {
-        $set: {
-          ...specialtySet,
-          updated_at: new Date().toISOString(),
-        },
-        $setOnInsert: {
-          patient_id: patientId,
-          doctor_id: doctorObjectId,
-          specialty_code: specialtyCode,
-          created_at: new Date().toISOString(),
-        },
-      },
-      { upsert: true }
-    );
-  }
-
-  if (body.consultation_id && ObjectId.isValid(body.consultation_id) && (Object.keys(coreSet).length > 0 || Object.keys(specialtyInput).length > 0)) {
-    const consultationId = new ObjectId(body.consultation_id);
-    const beforeCore = ((beforeHistory as { core?: Record<string, unknown> } | null)?.core ?? {}) as Record<string, unknown>;
-    const beforeSpecialtyData = ((beforeSpecialty as { data?: Record<string, unknown> } | null)?.data ?? {}) as Record<string, unknown>;
-
-    const afterCore: Record<string, unknown> = { ...beforeCore };
-    for (const [path, value] of Object.entries(coreSet)) {
-      const key = path.replace(/^core\./, "");
-      afterCore[key] = value;
-    }
-
-    const afterSpecialty: Record<string, unknown> = { ...beforeSpecialtyData, ...specialtyInput };
-
-    await logConsultationAudit(db, {
-      consultationId,
-      patientId,
-      actorId: doctorObjectId,
-      actorRole: String(session.role),
-      source: String(session.role) === "doctor" ? "doctor_manual" : "receptionist_manual",
-      eventType: "doctor_history_edit",
-      before: { core: beforeCore, specialty_history: beforeSpecialtyData },
-      after: { core: afterCore, specialty_history: afterSpecialty },
-      metadata: {
-        route: "patients.history.put",
-        core_keys: Object.keys(coreSet).map((k) => k.replace(/^core\./, "")),
-        specialty_keys: Object.keys(specialtyInput),
-      },
-    });
+  const doctor = await db.collection("users").findOne({ _id: doctorObjectId }, { projection: { specialty_code: 1 } });
+  const specialtyCode = String(doctor?.specialty_code ?? "general");
+  const now = new Date().toISOString();
+  try {
+    await clinicalTransaction(db, async mongoSession => {
+      if (Object.keys(coreSet).length) {
+        await db.collection("patient_history").updateOne({ patient_id: patientId },
+          { $set: { ...coreSet, updated_at: now }, $setOnInsert: { patient_id: patientId, created_at: now } },
+          { upsert: true, session: mongoSession });
+      }
+      if (Object.keys(specialtySet).length) {
+        await db.collection("patient_specialty_history").updateOne({ patient_id: patientId, doctor_id: doctorObjectId, specialty_code: specialtyCode },
+          { $set: { ...specialtySet, updated_at: now }, $setOnInsert: { patient_id: patientId,
+            doctor_id: doctorObjectId, specialty_code: specialtyCode, created_at: now } },
+          { upsert: true, session: mongoSession });
+      }
+      if (body.consultation_id && (Object.keys(coreSet).length || Object.keys(specialtySet).length)) {
+        const beforeCore = ((beforeHistory as { core?: Record<string, unknown> } | null)?.core ?? {}) as Record<string, unknown>;
+        const beforeSpecialtyData = ((beforeSpecialty as { data?: Record<string, unknown> } | null)?.data ?? {}) as Record<string, unknown>;
+        const afterCore = { ...beforeCore };
+        for (const [key, value] of Object.entries(coreInput)) afterCore[key] = value;
+        const afterSpecialty = { ...beforeSpecialtyData, ...specialtyInput };
+        await logConsultationAudit(db, {
+          consultationId: new ObjectId(body.consultation_id), patientId,
+          actorId: session.actor_id ?? session.uid, actorRole: session.role,
+          source: "doctor_manual", eventType: "doctor_history_edit", before: { core: beforeCore, specialty_history: beforeSpecialtyData },
+          after: { core: afterCore, specialty_history: afterSpecialty },
+          metadata: { route: "patients.history.put", core_keys: Object.keys(coreInput), specialty_keys: Object.keys(specialtyInput) },
+          mongoSession,
+        });
+      }
+    }, body.consultation_id ? { activeConsultationId: new ObjectId(body.consultation_id) } : {});
+  } catch {
+    return NextResponse.json({ error: "History update could not be committed atomically" }, { status: 503 });
   }
 
   return NextResponse.json({ ok: true });

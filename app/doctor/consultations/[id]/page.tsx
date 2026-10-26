@@ -12,7 +12,7 @@ async function fetchConsultation(id: string) {
   const consultation = await db.collection("consultations").findOne({ _id: new ObjectId(id), doctor_id: doctorObjectId });
   if (!consultation) return null;
   const [patient, transcript, emrEntry] = await Promise.all([
-    consultation.patient_id ? db.collection("patients").findOne({ _id: consultation.patient_id, doctor_id: doctorObjectId }) : null,
+    consultation.patient_id ? db.collection("patients").findOne({ _id: consultation.patient_id }) : null,
     db.collection("transcripts").findOne({ consultation_id: consultation._id }),
     db.collection("emr_entries").findOne({ consultation_id: consultation._id }),
   ]);
@@ -26,6 +26,7 @@ async function fetchConsultation(id: string) {
 
 export default async function ConsultationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!ObjectId.isValid(id)) notFound();
   const data = (await fetchConsultation(id)) as any;
   if (!data) notFound();
 
@@ -44,12 +45,12 @@ export default async function ConsultationDetailPage({ params }: { params: Promi
             <p className="mt-2 whitespace-pre-wrap text-sm">{data.transcripts?.[0]?.raw_text ?? "No transcript"}</p>
           </details>
           <div className="flex flex-wrap gap-2 pt-2">
-            <Link
+            {data.status === "completed" && <Link
               href={`/doctor/consultations/${String(data._id)}/prescription`}
               className="inline-flex h-10 items-center justify-center rounded-[calc(var(--radius)-2px)] border border-[hsl(var(--border))] bg-[hsl(var(--bg-secondary))] px-4 text-sm font-medium text-[hsl(var(--text-primary))] shadow-[var(--shadow-sm)] hover:bg-[hsl(var(--bg-card))]"
             >
               Print Prescription
-            </Link>
+            </Link>}
             <Link
               href={`/doctor/consultation/${String(data._id)}`}
               className="inline-flex h-10 items-center justify-center rounded-[calc(var(--radius)-2px)] border border-[hsl(var(--border))] bg-[hsl(var(--bg-card))] px-4 text-sm font-medium text-[hsl(var(--text-primary))] shadow-[var(--shadow-sm)] hover:bg-[hsl(var(--bg-secondary))]"

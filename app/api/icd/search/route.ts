@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "@/src/lib/auth/session";
 import { getDb } from "@/src/lib/mongodb/client";
 
 export async function GET(request: Request) {
+  const session = await getServerSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!["doctor", "receptionist"].includes(session.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get("q") ?? "").trim();
-  const limit = Number(searchParams.get("limit") ?? "10");
+  const requestedLimit = Number(searchParams.get("limit") ?? "10");
+  const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(20, Math.floor(requestedLimit))) : 10;
+  if (q.length > 100) return NextResponse.json({ error: "Query too long" }, { status: 400 });
   if (!q) return NextResponse.json({ codes: [] });
 
   const db = await getDb();
@@ -29,7 +35,7 @@ export async function GET(request: Request) {
 
   try {
     const nihUrl = `https://clinicaltables.nlm.nih.gov/api/icd10cm/v3/search?sf=code,name&terms=${encodeURIComponent(q)}&maxList=${limit}`;
-    const fallback = await fetch(nihUrl);
+    const fallback = await fetch(nihUrl, { signal: AbortSignal.timeout(3500) });
     const fallbackData = (await fallback.json()) as any[];
     const rows = Array.isArray(fallbackData?.[3]) ? fallbackData[3] : [];
     const mapped = rows.map((row: [string, string]) => ({

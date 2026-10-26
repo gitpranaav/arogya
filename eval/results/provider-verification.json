@@ -1,0 +1,7 @@
+{
+  "executed_at": "2026-10-26T12:40:18.781Z",
+  "scope": "live Deepgram/Groq; synthetic audio/text, no clinical accuracy claim",
+  "checks": [],
+  "setup_failure": "HTTP 429: Too many attempts; try later",
+  "status": "failed"
+}

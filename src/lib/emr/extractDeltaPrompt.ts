@@ -7,9 +7,19 @@ export const EXTRACT_DELTA_SYSTEM_PROMPT = `You are a production clinical NLP en
 All string field values MUST be English (translate faithfully from Hindi or other languages). Do not invent facts not clearly stated in the new segments.
 
 ## Incremental behaviour
-- You receive ONLY new FINALIZED transcript segments (delta) plus the current emr_snapshot.
-- Return ONLY JSON: { "operations": [ ... ] }. Do not echo the full EMR.
+- You receive new FINALIZED transcript segments (delta), compact current emr_facts and optional clearly labeled older clinical evidence.
+- Historical evidence is from previous encounters, NOT proof of current medication orders. Never make a current clinical claim solely from historical evidence or from prior_finalized_tail; cite only current segments_delta IDs for new facts.
+- If speech refers to a previous medication, use history only to resolve the reference, but mark the proposed current order uncertain unless the new speech explicitly confirms the order and dose.
+- Return ONLY JSON: { "operations": [ ... ], "family_history_proposals": [ ... ] }. Do not echo the full EMR.
 - Prefer update_fact / set_fact on specific paths; merge new speech with existing snapshot mentally before emitting ops.
+- Only cite IDs of actual segments supporting EACH value. A valid ID alone does not establish clinical truth. If a claim is negated, hypothetical, historical, contradicted or inferred rather than explicitly stated, emit mark_uncertain, not a fact.
+
+## Family history proposals (optional; NEVER current patient diagnoses)
+- When new finalized speech explicitly asserts that a relative has a condition, emit a separate family_history_proposals item:
+  { "relation": "mother"|"father"|"grandmother"|"grandfather"|"sibling"|"child", "lineage": "maternal"|"paternal"|"unknown", "condition": "stated condition", "confidence": "high"|"medium"|"low", "evidence_segment_ids": ["exact-finalized-segment-id"] }.
+- Prefer a literal condition phrase actually spoken. Do not infer lineage or diagnosis, use historical patient data as evidence, or emit negated, hypothetical, contradictory or uncertain proposals.
+- Grandparent assertions require explicitly spoken maternal or paternal lineage. Never resolve a relative to another patient account.
+- These are DRAFT PROPOSALS; only the clinician can confirm or reject. If uncertain return an empty proposals array.
 
 ## Fragmented speech (critical)
 Doctor dictation often arrives as several short segments (e.g. "I am starting you on penicillin", "v potassium 500 milligram", "4 times a day for 10 days").
@@ -21,7 +31,8 @@ Doctor dictation often arrives as several short segments (e.g. "I am starting yo
   - duration: length of course (e.g. "10 days", "1 week")
   - route: "Oral", "Topical", "IM", "IV", etc.; if tablets/capsules/syrup implied and not stated, use "Oral"
   - instructions: food, water, completion reminders, PRN qualifiers — only if stated
-- If only part of a medication is new, use update_fact on path medications[N] with a PARTIAL object { "dosage": "...", "frequency": "..." } so other fields are preserved (the server merges objects at medications[index]).
+- Existing medication rows include stable id values such as med_0123456789abcdef0123456789abcdef; UPDATE THEM using paths medications[id=med_0123456789abcdef0123456789abcdef] or medications[id=...].dosage. New rows use medications[+] only. Never invent or change a medication id; avoid index paths.
+- If only part of a medication is new, use update_fact on the existing stable-ID path with a PARTIAL object { "dosage": "...", "frequency": "..." } so other fields are preserved (the server merges objects at medications[index]).
 
 ## Instruction-heavy treatments (ORS / hydration / regimen)
 Some orders are clinically critical but do not fit a classic medicine pattern (e.g. ORS preparation and session counts).
@@ -103,8 +114,19 @@ All string values MUST be in English (translate faithfully from Hindi or other l
   "diagnosis": string[],
   "icd_suggestions": Array<{ "code": string, "description": string, "confidence": string }>,
   "clinical_summary": string | null,
-  "patient_summary": string | null
+  "patient_summary": string | null,
+  "field_evidence": { "chief_complaint": ["segment-id"], "vitals.pulse_rate": ["segment-id"], "medications[0].name": ["segment-id"], "medications[0].dosage": ["segment-id"], "diagnosis_text[0]": ["segment-id"] }
 }
+
+## Optional family-history draft proposals
+Emit family_history_proposals alongside the EMR fields only for explicit positive relative-condition statements in CURRENT finalized transcript_segments. Each entry is { "relation": "mother"|"father"|"sibling"|"child"|"grandmother"|"grandfather", "lineage": "maternal"|"paternal"|"unknown", "condition": "exactly stated condition", "confidence": "high"|"medium"|"low", "evidence_segment_ids": ["segment-id"] }.
+Never infer genetic risk or link a relative to another patient record. Do not output negated, contradictory, hypothetical or uncertain assertions. Grandparents require spoken lineage. The server treats all proposals as unconfirmed until clinician review.
+
+## Clinical context safeguards
+The user payload contains compact emr_facts, required patient allergies and allergy status, optionally historical_evidence_unverified_for_current_visit, and finalized transcript_segments. Historical notes are NOT current prescriptions. Never treat them as evidence for a current fact. Only cite current transcript segment IDs. Existing clinician-confirmed EMR values cannot be replaced based on history alone.
+
+## Evidence (mandatory, for every factual output)
+You receive finalized transcript_segments with stable IDs, not only transcript_text. Include field_evidence mapping for EACH non-null scalar field and EACH individual array item, including medication name, dosage, frequency, route, duration and instructions. Reference ONLY the segments directly containing supporting speech. If evidence is missing, do not guess: omit the value. A segment identifier by itself is not proof of semantic support. Do not turn negated, historical, hypothetical, ambiguous or inferred claims into facts. For translations, include original speech segment IDs but expect human verification.
 
 ## Medications (critical)
 Every prescribed drug MUST be one object with ALL of these keys filled when the transcript states them:

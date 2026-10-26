@@ -14,6 +14,7 @@ export async function GET(request: Request) {
   const q = (searchParams.get("q") ?? "").trim();
   const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? "8") || 8, 1), 20);
   if (!q) return NextResponse.json({ medications: [] });
+  if (q.length > 80) return NextResponse.json({ error: "Search query too long" }, { status: 400 });
 
   const db = await getDb();
   const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
@@ -27,6 +28,8 @@ export async function GET(request: Request) {
         id: row._id.toString(),
         name: row.name,
         generic_name: row.generic_name ?? null,
+        ingredients: Array.isArray(row.ingredients) ? row.ingredients : [],
+        catalog_version: row.catalog_version ?? null,
         default_strength: row.default_strength ?? null,
         default_route: row.default_route ?? null,
         aliases: Array.isArray(row.aliases) ? row.aliases : [],

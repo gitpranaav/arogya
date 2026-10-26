@@ -1,0 +1,1368 @@
+{
+  "version": "seed-medication-catalog-2026-10-25-v1",
+  "entries": [
+    {
+      "id": "amoxicillin",
+      "name": "Amoxicillin",
+      "generic_name": "amoxicillin",
+      "ingredients": [
+        "amoxicillin"
+      ],
+      "aliases": [
+        "amoxycillin"
+      ],
+      "default_route": "Oral",
+      "default_strength": "500 mg"
+    },
+    {
+      "id": "amoxicillin-clavulanate",
+      "name": "Amoxicillin-clavulanate",
+      "generic_name": "amoxicillin clavulanate",
+      "ingredients": [
+        "amoxicillin",
+        "clavulanate"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "625 mg"
+    },
+    {
+      "id": "azithromycin",
+      "name": "Azithromycin",
+      "generic_name": "azithromycin",
+      "ingredients": [
+        "azithromycin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "500 mg"
+    },
+    {
+      "id": "ciprofloxacin",
+      "name": "Ciprofloxacin",
+      "generic_name": "ciprofloxacin",
+      "ingredients": [
+        "ciprofloxacin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "500 mg"
+    },
+    {
+      "id": "levofloxacin",
+      "name": "Levofloxacin",
+      "generic_name": "levofloxacin",
+      "ingredients": [
+        "levofloxacin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "500 mg"
+    },
+    {
+      "id": "doxycycline",
+      "name": "Doxycycline",
+      "generic_name": "doxycycline",
+      "ingredients": [
+        "doxycycline"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "100 mg"
+    },
+    {
+      "id": "cephalexin",
+      "name": "Cephalexin",
+      "generic_name": "cephalexin",
+      "ingredients": [
+        "cephalexin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "500 mg"
+    },
+    {
+      "id": "cefixime",
+      "name": "Cefixime",
+      "generic_name": "cefixime",
+      "ingredients": [
+        "cefixime"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "200 mg"
+    },
+    {
+      "id": "cefuroxime",
+      "name": "Cefuroxime",
+      "generic_name": "cefuroxime",
+      "ingredients": [
+        "cefuroxime"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "500 mg"
+    },
+    {
+      "id": "metronidazole",
+      "name": "Metronidazole",
+      "generic_name": "metronidazole",
+      "ingredients": [
+        "metronidazole"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "400 mg"
+    },
+    {
+      "id": "tinidazole",
+      "name": "Tinidazole",
+      "generic_name": "tinidazole",
+      "ingredients": [
+        "tinidazole"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "500 mg"
+    },
+    {
+      "id": "ofloxacin",
+      "name": "Ofloxacin",
+      "generic_name": "ofloxacin",
+      "ingredients": [
+        "ofloxacin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "200 mg"
+    },
+    {
+      "id": "norfloxacin",
+      "name": "Norfloxacin",
+      "generic_name": "norfloxacin",
+      "ingredients": [
+        "norfloxacin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "400 mg"
+    },
+    {
+      "id": "rifaximin",
+      "name": "Rifaximin",
+      "generic_name": "rifaximin",
+      "ingredients": [
+        "rifaximin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "550 mg"
+    },
+    {
+      "id": "nitrofurantoin",
+      "name": "Nitrofurantoin",
+      "generic_name": "nitrofurantoin",
+      "ingredients": [
+        "nitrofurantoin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "100 mg"
+    },
+    {
+      "id": "fosfomycin",
+      "name": "Fosfomycin",
+      "generic_name": "fosfomycin",
+      "ingredients": [
+        "fosfomycin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "3 g"
+    },
+    {
+      "id": "fluconazole",
+      "name": "Fluconazole",
+      "generic_name": "fluconazole",
+      "ingredients": [
+        "fluconazole"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "150 mg"
+    },
+    {
+      "id": "itraconazole",
+      "name": "Itraconazole",
+      "generic_name": "itraconazole",
+      "ingredients": [
+        "itraconazole"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "100 mg"
+    },
+    {
+      "id": "terbinafine",
+      "name": "Terbinafine",
+      "generic_name": "terbinafine",
+      "ingredients": [
+        "terbinafine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "250 mg"
+    },
+    {
+      "id": "loperamide",
+      "name": "Loperamide",
+      "generic_name": "loperamide",
+      "ingredients": [
+        "loperamide"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "2 mg"
+    },
+    {
+      "id": "dicyclomine",
+      "name": "Dicyclomine",
+      "generic_name": "dicyclomine",
+      "ingredients": [
+        "dicyclomine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "20 mg"
+    },
+    {
+      "id": "ondansetron",
+      "name": "Ondansetron",
+      "generic_name": "ondansetron",
+      "ingredients": [
+        "ondansetron"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "4 mg"
+    },
+    {
+      "id": "pantoprazole",
+      "name": "Pantoprazole",
+      "generic_name": "pantoprazole",
+      "ingredients": [
+        "pantoprazole"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "40 mg"
+    },
+    {
+      "id": "omeprazole",
+      "name": "Omeprazole",
+      "generic_name": "omeprazole",
+      "ingredients": [
+        "omeprazole"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "20 mg"
+    },
+    {
+      "id": "esomeprazole",
+      "name": "Esomeprazole",
+      "generic_name": "esomeprazole",
+      "ingredients": [
+        "esomeprazole"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "40 mg"
+    },
+    {
+      "id": "rabeprazole",
+      "name": "Rabeprazole",
+      "generic_name": "rabeprazole",
+      "ingredients": [
+        "rabeprazole"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "20 mg"
+    },
+    {
+      "id": "ranitidine",
+      "name": "Ranitidine",
+      "generic_name": "ranitidine",
+      "ingredients": [
+        "ranitidine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "150 mg"
+    },
+    {
+      "id": "famotidine",
+      "name": "Famotidine",
+      "generic_name": "famotidine",
+      "ingredients": [
+        "famotidine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "20 mg"
+    },
+    {
+      "id": "domperidone",
+      "name": "Domperidone",
+      "generic_name": "domperidone",
+      "ingredients": [
+        "domperidone"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "metoclopramide",
+      "name": "Metoclopramide",
+      "generic_name": "metoclopramide",
+      "ingredients": [
+        "metoclopramide"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "sucralfate",
+      "name": "Sucralfate",
+      "generic_name": "sucralfate",
+      "ingredients": [
+        "sucralfate"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "1 g"
+    },
+    {
+      "id": "oral-rehydration-solution",
+      "name": "Oral Rehydration Solution",
+      "generic_name": "ors",
+      "ingredients": [
+        "ors"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "1 sachet"
+    },
+    {
+      "id": "paracetamol",
+      "name": "Paracetamol",
+      "generic_name": "paracetamol",
+      "ingredients": [
+        "paracetamol"
+      ],
+      "aliases": [
+        "acetaminophen"
+      ],
+      "default_route": "Oral",
+      "default_strength": "500 mg"
+    },
+    {
+      "id": "ibuprofen",
+      "name": "Ibuprofen",
+      "generic_name": "ibuprofen",
+      "ingredients": [
+        "ibuprofen"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "400 mg"
+    },
+    {
+      "id": "aceclofenac",
+      "name": "Aceclofenac",
+      "generic_name": "aceclofenac",
+      "ingredients": [
+        "aceclofenac"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "100 mg"
+    },
+    {
+      "id": "diclofenac",
+      "name": "Diclofenac",
+      "generic_name": "diclofenac",
+      "ingredients": [
+        "diclofenac"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "50 mg"
+    },
+    {
+      "id": "naproxen",
+      "name": "Naproxen",
+      "generic_name": "naproxen",
+      "ingredients": [
+        "naproxen"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "250 mg"
+    },
+    {
+      "id": "aspirin",
+      "name": "Aspirin",
+      "generic_name": "aspirin",
+      "ingredients": [
+        "aspirin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "75 mg"
+    },
+    {
+      "id": "meloxicam",
+      "name": "Meloxicam",
+      "generic_name": "meloxicam",
+      "ingredients": [
+        "meloxicam"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "7.5 mg"
+    },
+    {
+      "id": "ketorolac",
+      "name": "Ketorolac",
+      "generic_name": "ketorolac",
+      "ingredients": [
+        "ketorolac"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "tramadol",
+      "name": "Tramadol",
+      "generic_name": "tramadol",
+      "ingredients": [
+        "tramadol"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "50 mg"
+    },
+    {
+      "id": "amitriptyline",
+      "name": "Amitriptyline",
+      "generic_name": "amitriptyline",
+      "ingredients": [
+        "amitriptyline"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "pregabalin",
+      "name": "Pregabalin",
+      "generic_name": "pregabalin",
+      "ingredients": [
+        "pregabalin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "75 mg"
+    },
+    {
+      "id": "gabapentin",
+      "name": "Gabapentin",
+      "generic_name": "gabapentin",
+      "ingredients": [
+        "gabapentin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "300 mg"
+    },
+    {
+      "id": "sertraline",
+      "name": "Sertraline",
+      "generic_name": "sertraline",
+      "ingredients": [
+        "sertraline"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "50 mg"
+    },
+    {
+      "id": "escitalopram",
+      "name": "Escitalopram",
+      "generic_name": "escitalopram",
+      "ingredients": [
+        "escitalopram"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "fluoxetine",
+      "name": "Fluoxetine",
+      "generic_name": "fluoxetine",
+      "ingredients": [
+        "fluoxetine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "20 mg"
+    },
+    {
+      "id": "duloxetine",
+      "name": "Duloxetine",
+      "generic_name": "duloxetine",
+      "ingredients": [
+        "duloxetine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "30 mg"
+    },
+    {
+      "id": "mirtazapine",
+      "name": "Mirtazapine",
+      "generic_name": "mirtazapine",
+      "ingredients": [
+        "mirtazapine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "15 mg"
+    },
+    {
+      "id": "alprazolam",
+      "name": "Alprazolam",
+      "generic_name": "alprazolam",
+      "ingredients": [
+        "alprazolam"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "0.25 mg"
+    },
+    {
+      "id": "clonazepam",
+      "name": "Clonazepam",
+      "generic_name": "clonazepam",
+      "ingredients": [
+        "clonazepam"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "0.5 mg"
+    },
+    {
+      "id": "diazepam",
+      "name": "Diazepam",
+      "generic_name": "diazepam",
+      "ingredients": [
+        "diazepam"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "5 mg"
+    },
+    {
+      "id": "lorazepam",
+      "name": "Lorazepam",
+      "generic_name": "lorazepam",
+      "ingredients": [
+        "lorazepam"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "1 mg"
+    },
+    {
+      "id": "levothyroxine",
+      "name": "Levothyroxine",
+      "generic_name": "levothyroxine",
+      "ingredients": [
+        "levothyroxine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "25 mcg"
+    },
+    {
+      "id": "carbimazole",
+      "name": "Carbimazole",
+      "generic_name": "carbimazole",
+      "ingredients": [
+        "carbimazole"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "5 mg"
+    },
+    {
+      "id": "metformin",
+      "name": "Metformin",
+      "generic_name": "metformin",
+      "ingredients": [
+        "metformin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "500 mg"
+    },
+    {
+      "id": "gliclazide",
+      "name": "Gliclazide",
+      "generic_name": "gliclazide",
+      "ingredients": [
+        "gliclazide"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "80 mg"
+    },
+    {
+      "id": "glimepiride",
+      "name": "Glimepiride",
+      "generic_name": "glimepiride",
+      "ingredients": [
+        "glimepiride"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "1 mg"
+    },
+    {
+      "id": "sitagliptin",
+      "name": "Sitagliptin",
+      "generic_name": "sitagliptin",
+      "ingredients": [
+        "sitagliptin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "100 mg"
+    },
+    {
+      "id": "linagliptin",
+      "name": "Linagliptin",
+      "generic_name": "linagliptin",
+      "ingredients": [
+        "linagliptin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "5 mg"
+    },
+    {
+      "id": "vildagliptin",
+      "name": "Vildagliptin",
+      "generic_name": "vildagliptin",
+      "ingredients": [
+        "vildagliptin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "50 mg"
+    },
+    {
+      "id": "pioglitazone",
+      "name": "Pioglitazone",
+      "generic_name": "pioglitazone",
+      "ingredients": [
+        "pioglitazone"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "15 mg"
+    },
+    {
+      "id": "empagliflozin",
+      "name": "Empagliflozin",
+      "generic_name": "empagliflozin",
+      "ingredients": [
+        "empagliflozin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "dapagliflozin",
+      "name": "Dapagliflozin",
+      "generic_name": "dapagliflozin",
+      "ingredients": [
+        "dapagliflozin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "amlodipine",
+      "name": "Amlodipine",
+      "generic_name": "amlodipine",
+      "ingredients": [
+        "amlodipine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "5 mg"
+    },
+    {
+      "id": "telmisartan",
+      "name": "Telmisartan",
+      "generic_name": "telmisartan",
+      "ingredients": [
+        "telmisartan"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "40 mg"
+    },
+    {
+      "id": "losartan",
+      "name": "Losartan",
+      "generic_name": "losartan",
+      "ingredients": [
+        "losartan"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "50 mg"
+    },
+    {
+      "id": "valsartan",
+      "name": "Valsartan",
+      "generic_name": "valsartan",
+      "ingredients": [
+        "valsartan"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "80 mg"
+    },
+    {
+      "id": "olmesartan",
+      "name": "Olmesartan",
+      "generic_name": "olmesartan",
+      "ingredients": [
+        "olmesartan"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "20 mg"
+    },
+    {
+      "id": "hydrochlorothiazide",
+      "name": "Hydrochlorothiazide",
+      "generic_name": "hydrochlorothiazide",
+      "ingredients": [
+        "hydrochlorothiazide"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "12.5 mg"
+    },
+    {
+      "id": "chlorthalidone",
+      "name": "Chlorthalidone",
+      "generic_name": "chlorthalidone",
+      "ingredients": [
+        "chlorthalidone"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "12.5 mg"
+    },
+    {
+      "id": "furosemide",
+      "name": "Furosemide",
+      "generic_name": "furosemide",
+      "ingredients": [
+        "furosemide"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "40 mg"
+    },
+    {
+      "id": "spironolactone",
+      "name": "Spironolactone",
+      "generic_name": "spironolactone",
+      "ingredients": [
+        "spironolactone"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "25 mg"
+    },
+    {
+      "id": "propranolol",
+      "name": "Propranolol",
+      "generic_name": "propranolol",
+      "ingredients": [
+        "propranolol"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "20 mg"
+    },
+    {
+      "id": "atenolol",
+      "name": "Atenolol",
+      "generic_name": "atenolol",
+      "ingredients": [
+        "atenolol"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "50 mg"
+    },
+    {
+      "id": "metoprolol",
+      "name": "Metoprolol",
+      "generic_name": "metoprolol",
+      "ingredients": [
+        "metoprolol"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "25 mg"
+    },
+    {
+      "id": "bisoprolol",
+      "name": "Bisoprolol",
+      "generic_name": "bisoprolol",
+      "ingredients": [
+        "bisoprolol"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "5 mg"
+    },
+    {
+      "id": "atorvastatin",
+      "name": "Atorvastatin",
+      "generic_name": "atorvastatin",
+      "ingredients": [
+        "atorvastatin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "rosuvastatin",
+      "name": "Rosuvastatin",
+      "generic_name": "rosuvastatin",
+      "ingredients": [
+        "rosuvastatin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "simvastatin",
+      "name": "Simvastatin",
+      "generic_name": "simvastatin",
+      "ingredients": [
+        "simvastatin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "20 mg"
+    },
+    {
+      "id": "clopidogrel",
+      "name": "Clopidogrel",
+      "generic_name": "clopidogrel",
+      "ingredients": [
+        "clopidogrel"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "75 mg"
+    },
+    {
+      "id": "ticagrelor",
+      "name": "Ticagrelor",
+      "generic_name": "ticagrelor",
+      "ingredients": [
+        "ticagrelor"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "90 mg"
+    },
+    {
+      "id": "warfarin",
+      "name": "Warfarin",
+      "generic_name": "warfarin",
+      "ingredients": [
+        "warfarin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "2 mg"
+    },
+    {
+      "id": "apixaban",
+      "name": "Apixaban",
+      "generic_name": "apixaban",
+      "ingredients": [
+        "apixaban"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "5 mg"
+    },
+    {
+      "id": "rivaroxaban",
+      "name": "Rivaroxaban",
+      "generic_name": "rivaroxaban",
+      "ingredients": [
+        "rivaroxaban"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "heparin",
+      "name": "Heparin",
+      "generic_name": "heparin",
+      "ingredients": [
+        "heparin"
+      ],
+      "aliases": [],
+      "default_route": "Injection",
+      "default_strength": "5000 IU"
+    },
+    {
+      "id": "enoxaparin",
+      "name": "Enoxaparin",
+      "generic_name": "enoxaparin",
+      "ingredients": [
+        "enoxaparin"
+      ],
+      "aliases": [],
+      "default_route": "Injection",
+      "default_strength": "40 mg"
+    },
+    {
+      "id": "insulin-regular",
+      "name": "Insulin regular",
+      "generic_name": "insulin regular",
+      "ingredients": [
+        "insulin regular"
+      ],
+      "aliases": [],
+      "default_route": "Injection",
+      "default_strength": "10 units"
+    },
+    {
+      "id": "insulin-glargine",
+      "name": "Insulin glargine",
+      "generic_name": "insulin glargine",
+      "ingredients": [
+        "insulin glargine"
+      ],
+      "aliases": [],
+      "default_route": "Injection",
+      "default_strength": "10 units"
+    },
+    {
+      "id": "insulin-aspart",
+      "name": "Insulin aspart",
+      "generic_name": "insulin aspart",
+      "ingredients": [
+        "insulin aspart"
+      ],
+      "aliases": [],
+      "default_route": "Injection",
+      "default_strength": "10 units"
+    },
+    {
+      "id": "salbutamol",
+      "name": "Salbutamol",
+      "generic_name": "salbutamol",
+      "ingredients": [
+        "salbutamol"
+      ],
+      "aliases": [],
+      "default_route": "Inhalation",
+      "default_strength": "100 mcg"
+    },
+    {
+      "id": "budesonide",
+      "name": "Budesonide",
+      "generic_name": "budesonide",
+      "ingredients": [
+        "budesonide"
+      ],
+      "aliases": [],
+      "default_route": "Inhalation",
+      "default_strength": "200 mcg"
+    },
+    {
+      "id": "formoterol",
+      "name": "Formoterol",
+      "generic_name": "formoterol",
+      "ingredients": [
+        "formoterol"
+      ],
+      "aliases": [],
+      "default_route": "Inhalation",
+      "default_strength": "6 mcg"
+    },
+    {
+      "id": "montelukast",
+      "name": "Montelukast",
+      "generic_name": "montelukast",
+      "ingredients": [
+        "montelukast"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "cetirizine",
+      "name": "Cetirizine",
+      "generic_name": "cetirizine",
+      "ingredients": [
+        "cetirizine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "levocetirizine",
+      "name": "Levocetirizine",
+      "generic_name": "levocetirizine",
+      "ingredients": [
+        "levocetirizine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "5 mg"
+    },
+    {
+      "id": "fexofenadine",
+      "name": "Fexofenadine",
+      "generic_name": "fexofenadine",
+      "ingredients": [
+        "fexofenadine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "120 mg"
+    },
+    {
+      "id": "loratadine",
+      "name": "Loratadine",
+      "generic_name": "loratadine",
+      "ingredients": [
+        "loratadine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "prednisolone",
+      "name": "Prednisolone",
+      "generic_name": "prednisolone",
+      "ingredients": [
+        "prednisolone"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "methylprednisolone",
+      "name": "Methylprednisolone",
+      "generic_name": "methylprednisolone",
+      "ingredients": [
+        "methylprednisolone"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "4 mg"
+    },
+    {
+      "id": "hydrocortisone",
+      "name": "Hydrocortisone",
+      "generic_name": "hydrocortisone",
+      "ingredients": [
+        "hydrocortisone"
+      ],
+      "aliases": [],
+      "default_route": "Topical",
+      "default_strength": "1%"
+    },
+    {
+      "id": "mupirocin",
+      "name": "Mupirocin",
+      "generic_name": "mupirocin",
+      "ingredients": [
+        "mupirocin"
+      ],
+      "aliases": [],
+      "default_route": "Topical",
+      "default_strength": "2%"
+    },
+    {
+      "id": "clotrimazole",
+      "name": "Clotrimazole",
+      "generic_name": "clotrimazole",
+      "ingredients": [
+        "clotrimazole"
+      ],
+      "aliases": [],
+      "default_route": "Topical",
+      "default_strength": "1%"
+    },
+    {
+      "id": "miconazole",
+      "name": "Miconazole",
+      "generic_name": "miconazole",
+      "ingredients": [
+        "miconazole"
+      ],
+      "aliases": [],
+      "default_route": "Topical",
+      "default_strength": "2%"
+    },
+    {
+      "id": "hydroxyzine",
+      "name": "Hydroxyzine",
+      "generic_name": "hydroxyzine",
+      "ingredients": [
+        "hydroxyzine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "25 mg"
+    },
+    {
+      "id": "domperidone-oral-suspension",
+      "name": "Domperidone oral suspension",
+      "generic_name": "domperidone",
+      "ingredients": [
+        "domperidone"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "5 mg/5 mL"
+    },
+    {
+      "id": "iron-sucrose",
+      "name": "Iron sucrose",
+      "generic_name": "iron sucrose",
+      "ingredients": [
+        "iron sucrose"
+      ],
+      "aliases": [],
+      "default_route": "Injection",
+      "default_strength": "100 mg"
+    },
+    {
+      "id": "ferrous-sulfate",
+      "name": "Ferrous sulfate",
+      "generic_name": "ferrous sulfate",
+      "ingredients": [
+        "ferrous sulfate"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "325 mg"
+    },
+    {
+      "id": "folic-acid",
+      "name": "Folic acid",
+      "generic_name": "folic acid",
+      "ingredients": [
+        "folic acid"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "5 mg"
+    },
+    {
+      "id": "vitamin-d3",
+      "name": "Vitamin D3",
+      "generic_name": "cholecalciferol",
+      "ingredients": [
+        "cholecalciferol"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "60,000 IU"
+    },
+    {
+      "id": "calcium-carbonate",
+      "name": "Calcium carbonate",
+      "generic_name": "calcium carbonate",
+      "ingredients": [
+        "calcium carbonate"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "500 mg"
+    },
+    {
+      "id": "multivitamin",
+      "name": "Multivitamin",
+      "generic_name": "multivitamin",
+      "ingredients": [
+        "multivitamin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "1 tablet"
+    },
+    {
+      "id": "b-complex",
+      "name": "B-complex",
+      "generic_name": "b-complex",
+      "ingredients": [
+        "b-complex"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "1 tablet"
+    },
+    {
+      "id": "risek",
+      "name": "Risek",
+      "generic_name": "omeprazole",
+      "ingredients": [
+        "omeprazole"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "20 mg"
+    },
+    {
+      "id": "pan-d",
+      "name": "Pan-D",
+      "generic_name": "pantoprazole domperidone",
+      "ingredients": [
+        "pantoprazole",
+        "domperidone"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "40 mg"
+    },
+    {
+      "id": "zerodol-p",
+      "name": "Zerodol-P",
+      "generic_name": "aceclofenac paracetamol",
+      "ingredients": [
+        "aceclofenac",
+        "paracetamol"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "1 tablet"
+    },
+    {
+      "id": "taxim-o",
+      "name": "Taxim-O",
+      "generic_name": "cefixime",
+      "ingredients": [
+        "cefixime"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "200 mg"
+    },
+    {
+      "id": "augmentin",
+      "name": "Augmentin",
+      "generic_name": "amoxicillin clavulanate",
+      "ingredients": [
+        "amoxicillin",
+        "clavulanate"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "625 mg"
+    },
+    {
+      "id": "azee",
+      "name": "Azee",
+      "generic_name": "azithromycin",
+      "ingredients": [
+        "azithromycin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "500 mg"
+    },
+    {
+      "id": "cetzine",
+      "name": "Cetzine",
+      "generic_name": "cetirizine",
+      "ingredients": [
+        "cetirizine"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "10 mg"
+    },
+    {
+      "id": "dolo-650",
+      "name": "Dolo 650",
+      "generic_name": "paracetamol",
+      "ingredients": [
+        "paracetamol"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "650 mg"
+    },
+    {
+      "id": "spasmo-proxyvon",
+      "name": "Spasmo-Proxyvon",
+      "generic_name": "dicyclomine paracetamol",
+      "ingredients": [
+        "dicyclomine",
+        "paracetamol"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "1 tablet"
+    },
+    {
+      "id": "prega-gaba",
+      "name": "Prega-Gaba",
+      "generic_name": "pregabalin gabapentin",
+      "ingredients": [
+        "pregabalin",
+        "gabapentin"
+      ],
+      "aliases": [],
+      "default_route": "Oral",
+      "default_strength": "1 capsule"
+    }
+  ]
+}

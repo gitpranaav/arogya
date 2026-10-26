@@ -26,38 +26,38 @@ export async function createPatient(payload: Record<string, unknown>) {
   return result.insertedId.toString();
 }
 
-export async function createOrUpdatePatientByPhone(payload: {
-  phone: string;
-  name: string;
-  dob?: string | null;
-  gender?: string | null;
-  blood_group?: string | null;
-  allergies?: string[];
-  chronic_conditions?: string[];
-  address?: string | null;
-}) {
+/** Intake is not permission to alter another practice's clinical history. */
+export async function registerPatientForPractice(payload: {
+  phone: string; name: string; dob?: string | null; gender?: string | null;
+  blood_group?: string | null; allergies?: string[]; chronic_conditions?: string[]; address?: string | null;
+}, doctorId: string): Promise<{ id?: string; conflict?: boolean }> {
   const db = await getDb();
   const phone = payload.phone.trim();
-  const now = new Date().toISOString();
-  const result = await db.collection("patients").findOneAndUpdate(
-    { phone },
-    {
-      $set: {
-        phone,
-        name: payload.name,
-        dob: payload.dob ?? null,
-        gender: payload.gender ?? null,
-        blood_group: payload.blood_group ?? null,
-        allergies: payload.allergies ?? [],
-        chronic_conditions: payload.chronic_conditions ?? [],
-        address: payload.address ?? null,
-        updated_at: now,
-      },
-      $setOnInsert: { created_at: now },
-    },
-    { upsert: true, returnDocument: "after" }
-  );
-  return result?._id?.toString() ?? null;
+  const existing = await db.collection("patients").findOne({ phone });
+  if (existing) {
+    const link = await db.collection("patient_doctors").findOne({ patient_id: existing._id, doctor_id: asObjectId(doctorId) });
+    if (!link) return { conflict: true };
+    // This is a lookup for an existing linked patient, NEVER a clinical history update.
+    return { id: existing._id.toString() };
+  }
+  // Create the patient and practice association atomically. An orphaned patient
+  // must never claim the globally unique phone number after a partial failure.
+  const mongoSession = db.client.startSession();
+  try {
+    const patientId = new ObjectId();
+    await mongoSession.withTransaction(async () => {
+      const now = new Date().toISOString();
+      await db.collection("patients").insertOne({ _id: patientId, ...payload, phone,
+        allergies: payload.allergies ?? [], chronic_conditions: payload.chronic_conditions ?? [],
+        created_at: now, updated_at: now }, { session: mongoSession });
+      await db.collection("patient_doctors").insertOne({ patient_id: patientId,
+        doctor_id: asObjectId(doctorId), created_at: now }, { session: mongoSession });
+    });
+    return { id: patientId.toString() };
+  } catch (err: any) {
+    if (err?.code === 11000) return { conflict: true }; // concurrent registration
+    throw err;
+  } finally { await mongoSession.endSession(); }
 }
 
 export async function ensurePatientDoctorLink(patientId: string, doctorId: string) {

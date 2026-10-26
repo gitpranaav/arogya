@@ -9,11 +9,14 @@ import { Button } from "@/src/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
 import { Input } from "@/src/components/ui/Input";
 import { EMRLivePanel } from "@/src/components/emr/EMRLivePanel";
+import { ClinicalReviewDialog } from "@/src/components/doctor/consultation/ClinicalReviewDialog";
 import { STTRecorder } from "@/src/components/stt/STTRecorder";
 import { TranscriptViewer } from "@/src/components/stt/TranscriptViewer";
 import { PatientHistoryPanel } from "@/src/components/history/PatientHistoryPanel";
 import { useSTT } from "@/src/hooks/useSTT";
 import type { EMRSnapshot, TranscriptSegment } from "@/src/lib/emr/types";
+import { detectLiveAllergySignals } from "@/src/lib/clinical/allergySafety";
+import { chooseTranscriptBatch, pendingFromCursor } from "@/src/lib/extraction/batching";
 
 interface WorkspaceProps {
   consultationId: string;
@@ -34,27 +37,6 @@ type AuditEvent = {
   created_at: string | null;
   changed_paths: string[];
 };
-
-function normalize(value: string) {
-  return value.toLowerCase().trim();
-}
-
-function detectRealtimeAllergyAlert(allergies: string[], liveTranscript: string): string | null {
-  const text = normalize(liveTranscript);
-  if (!text) return null;
-
-  const allergyBlob = allergies.map((item) => normalize(String(item))).filter(Boolean).join(" ");
-  if (!allergyBlob) return null;
-
-  const hasPenicillinAllergy = /penicillin|pcn|beta[-\s]?lactam|β[-\s]?lactam/.test(allergyBlob);
-  const mentionsPenicillinFamily = /penic[a-z]*|amoxi[a-z]*|ampi[a-z]*|piper[a-z]*|augmentin|clavulanate|cef[a-z]+/.test(text);
-
-  if (hasPenicillinAllergy && mentionsPenicillinFamily) {
-    return "Live allergy alert: beta-lactam/penicillin family drug mentioned in transcript. Verify before prescribing.";
-  }
-
-  return null;
-}
 
 function formatElapsed(seconds: number) {
   const h = Math.floor(seconds / 3600)
@@ -191,6 +173,15 @@ export function ConsultationWorkspace({
   const [isEnded, setIsEnded] = useState(String(initialStatus ?? "").toLowerCase() === "completed");
   const [patientAllergies, setPatientAllergies] = useState<string[]>([]);
   const [emrSnapshot, setEmrSnapshot] = useState<EMRSnapshot>({});
+  const [emrVersion, setEmrVersion] = useState(0);
+  const [manualPending, setManualPending] = useState(false);
+  const manualPendingRef = useRef(false);
+  const updateManualPending = useCallback((dirty: boolean) => {
+    manualPendingRef.current = dirty;
+    setManualPending(dirty);
+  }, []);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(true);
   const [cursor, setCursor] = useState<{ last_final_segment_id?: string | null; last_final_index?: number | null } | null>(null);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
@@ -204,9 +195,12 @@ export function ConsultationWorkspace({
   const [followUpSaving, setFollowUpSaving] = useState(false);
   const [followUpNotice, setFollowUpNotice] = useState<string | null>(null);
   const extractingRef = useRef(false);
+  const [emrLoaded, setEmrLoaded] = useState(false);
+  const queuedBatchRef = useRef<{ id: string; firstAt: number; lastId: string; lastAt: number } | null>(null);
   const finalExtractionDoneRef = useRef(false);
   const finalExtractionInFlightRef = useRef(false);
   const deltaRetryCountRef = useRef(0);
+  const deltaBlockedRef = useRef<string | null>(null);
   const deltaRetryTimerRef = useRef<number | null>(null);
   const emrSnapshotRef = useRef<EMRSnapshot>({});
   const cursorRef = useRef<typeof cursor>(null);
@@ -234,17 +228,6 @@ export function ConsultationWorkspace({
     return () => clearInterval(tick);
   }, [startedAt]);
 
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      const response = await fetch(`/api/consultations/${consultationId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ updated_at: new Date().toISOString() }),
-      });
-      setSyncText(response.ok ? `Synced ${new Date().toLocaleTimeString("en-IN")}` : "Status sync failed");
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [consultationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -278,7 +261,10 @@ export function ConsultationWorkspace({
       const data = await res.json();
       if (cancelled) return;
       if (res.ok && data?.emr_entry?.snapshot) setEmrSnapshot(data.emr_entry.snapshot);
+      if (res.ok && data?.emr_entry) setEmrVersion(Number(data.emr_entry.version ?? 0));
       if (res.ok && data?.emr_entry?.extraction_cursor) setCursor(data.emr_entry.extraction_cursor);
+      if (res.ok) setEmrLoaded(true);
+      else setSyncText(String(data?.error ?? "EMR loading failed; extraction disabled"));
     })();
     return () => {
       cancelled = true;
@@ -301,22 +287,34 @@ export function ConsultationWorkspace({
     };
   }, [consultationId]);
 
-  const processDeltaExtraction = useCallback(async () => {
-    if (extractingRef.current) return;
+  const processDeltaExtraction = useCallback(async (force = false) => {
+    if (isEnded || !emrLoaded || extractingRef.current || (deltaRetryTimerRef.current != null && !force)) return;
     extractingRef.current = true;
 
     try {
       // Drain all newly finalized segments so EMR updates keep up while speaking.
       while (true) {
-        const finalSegments = (sttSegmentsRef.current ?? []).filter((s) => s?.is_final) as TranscriptSegment[];
-        if (!finalSegments.length) break;
-
-        const c = cursorRef.current;
-        const lastProcessedId = c?.last_final_segment_id ?? null;
-        const startIndex = lastProcessedId ? finalSegments.findIndex((s) => s.id === lastProcessedId) + 1 : 0;
-        const delta = startIndex >= 0 ? finalSegments.slice(startIndex) : finalSegments;
-
-        if (!delta.length) break;
+        // A clinician edit that has not been persisted is authoritative in the
+        // browser; pause extraction rather than race a whole-snapshot PUT.
+        if (manualPendingRef.current) break;
+        const finalSegments = (sttSegmentsRef.current ?? []).filter((s) => s?.is_final !== false) as TranscriptSegment[];
+        const pending = pendingFromCursor(finalSegments, cursorRef.current?.last_final_segment_id ?? null);
+        if (!pending) { setSyncText("Extraction cursor mismatch — reload consultation"); break; }
+        if (!pending.length) { queuedBatchRef.current = null; deltaBlockedRef.current = null; break; }
+        // Do not turn a permanent validation/clinical error into infinite polling.
+        if (deltaBlockedRef.current === pending[0].id) break;
+        const now = Date.now();
+        const first = pending[0].id;
+        const last = pending[pending.length - 1].id;
+        if (queuedBatchRef.current?.id !== first) queuedBatchRef.current = { id: first, firstAt: now, lastId: last, lastAt: now };
+        else if (queuedBatchRef.current.lastId !== last) {
+          queuedBatchRef.current.lastId = last;
+          queuedBatchRef.current.lastAt = now;
+        }
+        const timing = queuedBatchRef.current;
+        const batch = chooseTranscriptBatch(pending, now, timing.firstAt, timing.lastAt, force);
+        if (!batch.ready) break;
+        const delta = batch.segments;
 
         const res = await fetch("/api/emr/extract-delta", {
           method: "POST",
@@ -336,6 +334,15 @@ export function ConsultationWorkspace({
             window.clearTimeout(deltaRetryTimerRef.current);
             deltaRetryTimerRef.current = null;
           }
+          // If the clinician started editing during this provider call, do not
+          // advance the local EMR version without also adopting the server's
+          // snapshot: that could turn a stale whole-document PUT into an
+          // apparently current write that erases the AI changes.
+          if (manualPendingRef.current) {
+            setSyncText("EMR updated during unsaved manual edits — reload to resolve version conflict");
+            break;
+          }
+          if (typeof data?.version === "number") setEmrVersion(data.version);
           if (data?.snapshot) {
             emrSnapshotRef.current = data.snapshot;
             setEmrSnapshot(data.snapshot);
@@ -344,13 +351,16 @@ export function ConsultationWorkspace({
             cursorRef.current = data.new_cursor;
             setCursor(data.new_cursor);
           }
+          queuedBatchRef.current = null;
           setSyncText(`Synced ${new Date().toLocaleTimeString("en-IN")}`);
         } else {
-          const retryable = Boolean(data?.retryable) || res.status === 429 || res.status >= 500;
+          // An explicit server retryable:false overrides generic 429/5xx heuristics.
+          const retryable = typeof data?.retryable === "boolean" ? data.retryable : res.status === 429 || res.status >= 500;
           const code = String(data?.error_code ?? "extract_delta_failed");
           const message = String(data?.error ?? "Delta extraction failed");
 
           if (!retryable || code === "provider_auth" || code === "missing_api_key") {
+            deltaBlockedRef.current = delta[0].id;
             setSyncText(`Live extraction paused: ${message}`);
             break;
           }
@@ -372,11 +382,17 @@ export function ConsultationWorkspace({
     } finally {
       extractingRef.current = false;
     }
-  }, [consultationId]);
+  }, [consultationId, emrLoaded, isEnded]);
 
   useEffect(() => {
-    void processDeltaExtraction();
-  }, [processDeltaExtraction, stt.segments]);
+    if (!manualPending) void processDeltaExtraction(stt.status === "paused" || stt.status === "idle");
+  }, [processDeltaExtraction, stt.segments, stt.status, manualPending]);
+
+  // A bounded timer flushes utterances that have no explicit punctuation.
+  useEffect(() => {
+    const timer = window.setInterval(() => { if (!manualPendingRef.current) void processDeltaExtraction(); }, 500);
+    return () => window.clearInterval(timer);
+  }, [processDeltaExtraction]);
 
   useEffect(() => {
     return () => {
@@ -387,10 +403,12 @@ export function ConsultationWorkspace({
     };
   }, []);
 
-  const liveAllergyAlert = useMemo(
-    () => detectRealtimeAllergyAlert(patientAllergies, `${stt.fullText ?? ""} ${stt.interimText ?? ""}`),
-    [patientAllergies, stt.fullText, stt.interimText]
-  );
+  const recentFinalized = (stt.segments ?? []).slice(-2).map(segment => segment.text).join(" ");
+  const liveAllergyAlert = useMemo(() => {
+    const warnings = detectLiveAllergySignals(patientAllergies, recentFinalized, stt.interimText ?? "")
+      .filter(signal => signal.intent !== "negated" && signal.intent !== "historical");
+    return warnings.length ? warnings.map(signal => signal.warning).join(" · ") : null;
+  }, [patientAllergies, recentFinalized, stt.interimText]);
 
   const followUpSuggestion = useMemo(() => inferFollowUpFromTranscript(stt.fullText ?? ""), [stt.fullText]);
 
@@ -427,74 +445,69 @@ export function ConsultationWorkspace({
     }
   }, [consultationId, followUpDate, followUpSuggestion?.days]);
 
-  const runFinalExtraction = useCallback(async () => {
-    if (finalExtractionDoneRef.current || finalExtractionInFlightRef.current) return;
+  const runFinalExtraction = useCallback(async (): Promise<boolean> => {
+    if (manualPending) { setSyncText("Save manual EMR edits before final extraction"); return false; }
+    if (finalExtractionDoneRef.current) return true;
+    if (finalExtractionInFlightRef.current) return false;
     finalExtractionInFlightRef.current = true;
-
     try {
-      const transcriptText = stt.fullText?.trim() ?? "";
-      if (!transcriptText) {
-        finalExtractionDoneRef.current = true;
-        return;
+      // Never run final extraction over an outstanding delta update.
+      for (let i = 0; i < 50 && extractingRef.current; i++) {
+        await new Promise(resolve => window.setTimeout(resolve, 100));
       }
-
-      await fetch("/api/transcripts/upsert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          consultation_id: consultationId,
-          raw_text: stt.fullText,
-          segments: stt.segments,
-          processing_status: "completed",
-        }),
-      });
-
-      const extractRes = await fetch("/api/emr/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ consultation_id: consultationId, transcript_text: transcriptText }),
-      });
-      const extractData = await extractRes.json().catch(() => ({}));
-      if (extractRes.ok && extractData?.snapshot) {
-        setEmrSnapshot(extractData.snapshot);
-        setSyncText(`Finalized ${new Date().toLocaleTimeString("en-IN")}`);
-        finalExtractionDoneRef.current = true;
-      } else if (!extractRes.ok) {
-        setSyncText(String(extractData?.error ?? "Final extraction failed"));
-      }
-    } finally {
-      finalExtractionInFlightRef.current = false;
-    }
-  }, [consultationId, stt.fullText, stt.segments]);
+      if (extractingRef.current) { setSyncText("Extraction still processing; retry"); return false; }
+      // Explicit stop/completion must drain persisted pending segments regardless of batching age.
+      await processDeltaExtraction(true);
+      if (extractingRef.current) { setSyncText("Live extraction still processing; retry"); return false; }
+      const res = await fetch("/api/emr/extract", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ consultation_id: consultationId }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.snapshot) { setSyncText(String(data?.error ?? "Final extraction failed")); return false; }
+      setEmrSnapshot(data.snapshot);
+      if (typeof data.version === "number") setEmrVersion(data.version);
+      setSyncText(`Final extraction ready for doctor review`);
+      finalExtractionDoneRef.current = true;
+      return true;
+    } catch (err) { setSyncText(err instanceof Error ? err.message : "Final extraction failed"); return false; }
+    finally { finalExtractionInFlightRef.current = false; }
+  }, [consultationId, manualPending, processDeltaExtraction]);
 
   const handleStopClick = useCallback(async () => {
-    if (stt.status !== "idle") {
-      await stt.stop();
-    }
-    await runFinalExtraction();
+    try {
+      if (stt.status !== "idle") await stt.stop();
+      await runFinalExtraction();
+    } catch (e) { setSyncText(e instanceof Error ? e.message : "Could not finalize transcription"); }
   }, [runFinalExtraction, stt]);
 
   const endConsultation = async () => {
-    if (stt.status !== "idle") {
-      await stt.stop();
+    if (isFinalizing || manualPendingRef.current) { setSyncText("Save unsaved EMR edits before review"); return; }
+    setIsFinalizing(true);
+    try {
+      if (stt.status !== "idle") await stt.stop();
+      const extractionOk = await runFinalExtraction();
+      if (!extractionOk) return;
+      // Structured review fetches the latest authoritative server state. It never signs automatically.
+      setReviewOpen(true);
+    } catch (error) { setSyncText(error instanceof Error ? error.message : "Unable to prepare clinical review"); }
+    finally { setIsFinalizing(false); }
+  };
+
+  const navigateToReviewField = (path: string) => {
+    setReviewOpen(false);
+    if (path === "family_history") {
+      setHistoryOpen(true);
+      window.requestAnimationFrame(() => document.getElementById("mediflow-family-history")?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
+    } else {
+      window.requestAnimationFrame(() => document.getElementById("mediflow-emr-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
     }
-
-    await runFinalExtraction();
-
-    await fetch(`/api/consultations/${consultationId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "completed", ended_at: new Date().toISOString() }),
-    });
-    const emrRes = await fetch(`/api/emr/by-consultation/${consultationId}`, { method: "GET" });
-    const emrJson = await emrRes.json();
-    if (emrRes.ok && emrJson?.emr_entry?.snapshot) setEmrSnapshot(emrJson.emr_entry.snapshot);
-    setSyncText("Consultation finalized");
-    setIsEnded(true);
+    setSyncText(`Correct or verify ${path}, save edits, then reopen review`);
   };
 
   return (
     <div className="flex h-[calc(100dvh-4.5rem)] min-h-[480px] flex-col gap-2">
+      {reviewOpen && !isEnded && <ClinicalReviewDialog consultationId={consultationId} hasUnsavedEdits={manualPending}
+        onClose={() => setReviewOpen(false)} onNeedsEdit={navigateToReviewField}
+        onCompleted={() => { setIsEnded(true); setReviewOpen(false); setSyncText("Consultation completed with doctor-approved EMR"); }} />}
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-2 py-3">
           <div>
@@ -511,6 +524,7 @@ export function ConsultationWorkspace({
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="info">{consultationType}</Badge>
+            <Badge variant={isEnded ? "success" : reviewOpen ? "warning" : "outline"}>{isEnded ? "Completed" : reviewOpen ? "Pending Review" : "Active"}</Badge>
             <Badge variant="outline">
               <Clock3 className="mr-1 h-3.5 w-3.5" />
               {formatElapsed(elapsed)}
@@ -526,8 +540,8 @@ export function ConsultationWorkspace({
             >
               {followUpDate ? `Follow-up: ${followUpDate}` : "Set Follow-up"}
             </Button>
-            <Button variant="danger" onClick={endConsultation} disabled={isEnded}>
-              End Consultation
+            <Button variant="danger" onClick={endConsultation} disabled={isEnded || isFinalizing || manualPending}>
+              {isFinalizing ? "Preparing Review…" : "Review & Complete"}
             </Button>
             {isEnded && (
               <Link href={`/doctor/consultations/${String(consultationId)}/prescription`} target="_blank">
@@ -592,7 +606,7 @@ export function ConsultationWorkspace({
                 error={stt.error}
                 onStart={stt.start}
                 onStop={handleStopClick}
-                onPause={stt.pause}
+                onPause={async () => { await stt.pause(); await processDeltaExtraction(true); }}
                 onResume={stt.resume}
                 disabled={isEnded}
               />
@@ -606,11 +620,14 @@ export function ConsultationWorkspace({
             <CardTitle className="text-sm">Live EMR</CardTitle>
           </CardHeader>
           <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-2 pt-0">
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [-webkit-overflow-scrolling:touch] xl:overflow-y-auto">
+            <div id="mediflow-emr-panel" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [-webkit-overflow-scrolling:touch] xl:overflow-y-auto">
               <EMRLivePanel
                 consultationId={consultationId}
                 snapshot={emrSnapshot}
                 onChangeSnapshot={setEmrSnapshot}
+                version={emrVersion}
+                onSaved={setEmrVersion}
+                onDirtyChange={updateManualPending}
                 patientAllergies={patientAllergies}
                 liveAllergyAlert={liveAllergyAlert}
               />
@@ -632,7 +649,7 @@ export function ConsultationWorkspace({
             </Button>
           </div>
           <div className={"min-h-0 flex-1 overflow-hidden transition-all duration-300 ease-out " + (historyOpen ? "opacity-100 translate-x-0 pl-4" : "pointer-events-none opacity-0 translate-x-2 pl-0")}>
-            <div className="h-full overflow-y-auto">
+            <div id="mediflow-family-history" className="h-full overflow-y-auto">
               <PatientHistoryPanel consultationId={consultationId} />
             </div>
           </div>

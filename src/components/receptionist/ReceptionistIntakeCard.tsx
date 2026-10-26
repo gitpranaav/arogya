@@ -123,7 +123,7 @@ export function ReceptionistIntakeCard({ patients }: ReceptionistIntakeCardProps
       const emrRes = await fetch(`/api/emr/by-consultation/${createData.consultation_id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ snapshot }),
+        body: JSON.stringify({ snapshot, expected_version: 0 }),
       });
       const emrData = (await emrRes.json()) as { error?: string };
       if (!emrRes.ok) {

@@ -113,7 +113,9 @@ export default function DoctorSettingsPage() {
               type="password"
               value={receptionistPassword}
               onChange={(e) => setReceptionistPassword(e.target.value)}
-              placeholder="Minimum 6 characters"
+              placeholder="Minimum 10 characters"
+              minLength={10}
+              maxLength={256}
             />
             <p className="text-xs text-[hsl(var(--text-muted))]">
               Receptionist logs in using your email + this password at <code>/receptionist/login</code>.
@@ -121,7 +123,7 @@ export default function DoctorSettingsPage() {
           </div>
           {error ? <p className="text-xs text-[hsl(var(--danger))]">{error}</p> : null}
           {message ? <p className="text-xs text-[hsl(var(--success))]">{message}</p> : null}
-          <Button loading={loading} onClick={savePassword} disabled={receptionistPassword.trim().length < 6}>
+          <Button loading={loading} onClick={savePassword} disabled={receptionistPassword.trim().length < 10}>
             Save
           </Button>
         </CardContent>

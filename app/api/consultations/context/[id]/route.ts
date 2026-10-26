@@ -12,6 +12,7 @@ export async function GET(_request: Request, { params }: Params) {
   if (!["doctor", "receptionist"].includes(String(session.role))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
+  if (!ObjectId.isValid(id)) return NextResponse.json({ error: "Invalid consultation ID" }, { status: 400 });
   const db = await getDb();
   const doctorObjectId = new ObjectId(session.uid);
 
@@ -93,9 +94,11 @@ export async function GET(_request: Request, { params }: Params) {
   }));
 
   const core = (history as { core?: Record<string, unknown> } | null)?.core ?? {};
+  const patientAllergies = Array.isArray(patient?.allergies) ? patient.allergies : [];
   const historyPayload = history
     ? {
         ...core,
+        allergies: Array.from(new Set([...patientAllergies, ...(Array.isArray(core.allergies) ? core.allergies : [])])),
         id: history._id.toString(),
         patient_id: (history as { patient_id?: unknown }).patient_id?.toString?.() ?? String(patientId),
         created_at: (history as { created_at?: string | Date | null }).created_at ?? null,
@@ -109,7 +112,8 @@ export async function GET(_request: Request, { params }: Params) {
     patient: patient
       ? { id: patient._id.toString(), name: patient.name ?? null, phone: patient.phone ?? null, dob: patient.dob ?? null, gender: patient.gender ?? null }
       : null,
-    history: historyPayload,
+    history: historyPayload ?? { allergies: patientAllergies },
+    allergy_status: patientAllergies.length || (Array.isArray(core.allergies) && core.allergies.length) ? "recorded" : "not_assessed",
     specialty_history: specialty?.data ?? null,
     latest_consultation: latestConsultation,
     recent,

@@ -1,3 +1,4 @@
+import { MEDICATION_ID_PATTERN } from "./medicationIdentity";
 import type { EMRMedication } from "@/src/lib/emr/types";
 
 function str(v: unknown): string {
@@ -18,6 +19,7 @@ export function normalizeMedicationEntry(raw: unknown): EMRMedication {
   const o = raw as Record<string, unknown>;
   const name = str(o.name ?? o.drug ?? o.medication ?? o.drug_name ?? o.medicine);
   return {
+    ...(typeof o.id === "string" && MEDICATION_ID_PATTERN.test(o.id) ? { id: o.id } : {}),
     name,
     dosage: str(o.dosage ?? o.dose ?? o.strength ?? o.dosage_strength) || null,
     frequency: str(o.frequency ?? o.freq ?? o.dosing_frequency ?? o.how_often) || null,

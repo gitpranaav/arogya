@@ -14,6 +14,7 @@ export interface STTSegment {
   is_final: boolean;
   start_ms?: number;
   end_ms?: number;
+  sequence?: number;
   language?: string | null;
 }
 
@@ -51,25 +52,23 @@ export function useSTT({ consultationId, transcriptId, chunkMs = 250 }: UseSTTAr
   const [error, setError] = useState<string | null>(null);
   const [detectedLanguage, setDetectedLanguage] = useState<string | null>(null);
   const hydratedRef = useRef(false);
+  const stoppingRef = useRef(false);
+  const segmentsRef = useRef<STTSegment[]>([]);
 
   const fullText = useMemo(() => segments.filter((s) => s.is_final).map((s) => s.text).join(" ").trim(), [segments]);
 
   const persistTranscript = useCallback(
-    async (processingStatus: "in_progress" | "paused" | "completed") => {
-      if (!consultationId) return;
-      await fetch("/api/transcripts/upsert", {
+    async (processingStatus: "in_progress" | "paused" | "completed", current = segmentsRef.current) => {
+      if (!consultationId) throw new Error("Consultation ID missing");
+      const res = await fetch("/api/transcripts/upsert", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: transcriptId ?? crypto.randomUUID(),
-          consultation_id: consultationId,
-          raw_text: fullText,
-          segments,
-          processing_status: processingStatus,
-        }),
+        body: JSON.stringify({ consultation_id: consultationId, raw_text: current.filter(s => s.is_final).map(s => s.text).join(" "),
+          segments: current.filter(s => s.is_final), processing_status: processingStatus }),
       });
+      if (!res.ok) throw new Error(`Transcript persistence failed (${res.status})`);
     },
-    [consultationId, fullText, segments, transcriptId]
+    [consultationId]
   );
 
   const cleanup = useCallback(() => {
@@ -87,11 +86,11 @@ export function useSTT({ consultationId, transcriptId, chunkMs = 250 }: UseSTTAr
   }, []);
 
   const getDeepgramToken = useCallback(async () => {
-    const res = await fetch("/api/stt/token", { method: "POST" });
+    const res = await fetch("/api/stt/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ consultation_id: consultationId }) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "Failed to get token");
     return { token: String(data.token ?? ""), mode: String(data.mode ?? "") };
-  }, []);
+  }, [consultationId]);
 
   const start = useCallback(async () => {
     if (!consultationId) {
@@ -101,6 +100,7 @@ export function useSTT({ consultationId, transcriptId, chunkMs = 250 }: UseSTTAr
     if (status !== "idle") return;
 
     try {
+      stoppingRef.current = false;
       setError(null);
       setStatus("requesting_permission");
 
@@ -127,7 +127,7 @@ export function useSTT({ consultationId, transcriptId, chunkMs = 250 }: UseSTTAr
       });
       const wsUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
       // Match the working project: subprotocol auth, no tokens in URL.
-      const ws = new WebSocket(wsUrl, ["token", auth.token]);
+      const ws = new WebSocket(wsUrl, ["bearer", auth.token]);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -168,9 +168,7 @@ export function useSTT({ consultationId, transcriptId, chunkMs = 250 }: UseSTTAr
               ? Math.round((data.start + data.duration) * 1000)
               : undefined;
 
-          setSegments((prev) => [
-            ...prev,
-            {
+          const nextSegment: STTSegment = {
               id: crypto.randomUUID(),
               text,
               speaker: currentSpeakerRef.current,
@@ -180,8 +178,12 @@ export function useSTT({ consultationId, transcriptId, chunkMs = 250 }: UseSTTAr
               start_ms: startMs,
               end_ms: endMs,
               language: detectedLanguage,
-            },
-          ]);
+              sequence: segmentsRef.current.length,
+            };
+          if (startMs !== undefined && segmentsRef.current.some(s => s.start_ms === startMs && s.text === text)) return;
+          segmentsRef.current = [...segmentsRef.current, nextSegment];
+          setSegments(segmentsRef.current);
+          void persistTranscript("in_progress", [nextSegment]).catch(() => setError("Transcript persistence failed; stop to retry"));
           setInterimText("");
         } catch {
           // ignore non-json or unexpected
@@ -199,9 +201,13 @@ export function useSTT({ consultationId, transcriptId, chunkMs = 250 }: UseSTTAr
         // Deepgram often provides a useful reason string here (e.g., auth failure)
         const code = typeof e?.code === "number" ? e.code : null;
         const reason = e?.reason ? String(e.reason) : "";
+        if (stoppingRef.current) return;
         if (reason) setError(`STT closed (${code ?? "?"}): ${reason}`);
         else if (code != null) setError(`STT closed (${code}). If this persists, check DevTools → Network → WS for 401/403.`);
-        if (status !== "idle") setStatus("idle");
+        // The `start` callback captures status="idle" at connection time;
+        // checking that stale value here leaves the recorder stuck in a
+        // recording state after an unexpected WebSocket disconnect.
+        setStatus("idle");
         cleanup();
       };
     } catch (e) {
@@ -209,7 +215,7 @@ export function useSTT({ consultationId, transcriptId, chunkMs = 250 }: UseSTTAr
       setStatus("idle");
       cleanup();
     }
-  }, [chunkMs, cleanup, consultationId, detectedLanguage, getDeepgramToken, status]);
+  }, [chunkMs, cleanup, consultationId, detectedLanguage, getDeepgramToken, persistTranscript, status]);
 
   const pause = useCallback(async () => {
     mediaRecorderRef.current?.pause();
@@ -223,9 +229,24 @@ export function useSTT({ consultationId, transcriptId, chunkMs = 250 }: UseSTTAr
   }, []);
 
   const stop = useCallback(async () => {
+    stoppingRef.current = true;
+    const ws = wsRef.current;
+    const recorder = mediaRecorderRef.current;
+    if (recorder?.state && recorder.state !== "inactive") {
+      try {
+        recorder.requestData();
+        await new Promise<void>(resolve => { recorder.addEventListener("stop", () => resolve(), { once: true }); recorder.stop(); });
+      } catch { /* recorder already stopped */ }
+    }
+    if (ws?.readyState === WebSocket.OPEN) {
+      try { ws.send(JSON.stringify({ type: "Finalize" })); } catch { /* socket closed */ }
+      // Allow finalized events to arrive before closing the socket.
+      await new Promise(resolve => window.setTimeout(resolve, 900));
+    }
     cleanup();
     setStatus("idle");
-    await persistTranscript("completed");
+    try { await persistTranscript("completed", segmentsRef.current); } finally { stoppingRef.current = false; }
+    return segmentsRef.current;
   }, [cleanup, persistTranscript]);
 
   useEffect(() => {
@@ -254,12 +275,14 @@ export function useSTT({ consultationId, transcriptId, chunkMs = 250 }: UseSTTAr
               start_ms: typeof segment?.start_ms === "number" ? segment.start_ms : undefined,
               end_ms: typeof segment?.end_ms === "number" ? segment.end_ms : undefined,
               language: typeof segment?.language === "string" ? segment.language : null,
+              sequence: typeof segment?.sequence === "number" ? segment.sequence : undefined,
             };
           })
           .filter(Boolean) as STTSegment[];
 
-        if (mapped.length) {
-          setSegments((prev) => (prev.length ? prev : mapped));
+        if (mapped.length && !segmentsRef.current.length) {
+          segmentsRef.current = mapped;
+          setSegments(mapped);
         }
       } catch {
         // Non-blocking: transcript hydration should not interrupt live recording.

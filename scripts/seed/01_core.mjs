@@ -27,7 +27,9 @@ await Promise.all([
   db.collection("emr_diagnoses").createIndex({ emr_entry_id: 1 }),
   db.collection("icd10_codes").createIndex({ code: 1 }, { unique: true }),
   db.collection("icd10_codes").createIndex({ description: "text", code: "text" }),
-  db.collection("prescriptions").createIndex({ consultation_id: 1 }),
+  db.collection("prescriptions").createIndex({ consultation_id: 1 }, { unique: true }),
+  db.collection("api_usage_limits").createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
+  db.collection("emr_extraction_batches").createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
 ]);
 
 console.log("Core collections and indexes ready.");

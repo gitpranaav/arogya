@@ -19,6 +19,7 @@ interface ConsultationRecord {
 
 export default async function ConsultationPage({ params }: ConsultationPageProps) {
   const { id } = await params;
+  if (!ObjectId.isValid(id)) notFound();
   const { db, session } = await getServerContext();
   const doctorObjectId = new ObjectId(session.uid);
   const consultationDoc = await db.collection("consultations").findOne({ _id: new ObjectId(id), doctor_id: doctorObjectId });

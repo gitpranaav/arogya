@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AISuggestions } from "@/src/components/emr/AISuggestions";
 import { ExtractButton } from "@/src/components/emr/ExtractButton";
@@ -30,26 +30,32 @@ export function EMRPanel({ consultationId, emrEntryId, transcriptText = "" }: Pr
   const [diagnoses, setDiagnoses] = useState<Array<ICDItem & { is_primary?: boolean; ai?: boolean; confidence?: string }>>([]);
   const [aiSuggestions, setAiSuggestions] = useState<Array<{ code: string; description: string; confidence?: "high" | "medium" | "low" }>>([]);
   const [saveText, setSaveText] = useState("Not saved yet");
+  const [version, setVersion] = useState<number | null>(null);
+  const manualEditRef = useRef(false);
 
-  const savePayload = useMemo(() => {
-    return {
-      consultation_id: consultationId,
-      chief_complaint: form.chief_complaint ?? null,
-      symptoms: form.symptoms ?? [],
-      assessment: form.assessment ?? null,
-      clinical_summary: form.clinical_summary ?? null,
-      requires_review: false,
-    };
-  }, [consultationId, form]);
-
+  const savePayload = useMemo(() => ({ snapshot: {
+    chief_complaint: form.chief_complaint ?? null, symptoms: form.symptoms ?? [],
+    assessment: form.assessment ?? null, plan: form.plan ?? null,
+    clinical_summary: form.clinical_summary ?? null,
+  }, expected_version: version }), [form, version]);
   useEffect(() => {
     if (!emrEntryId) return;
+    let cancelled = false;
+    void fetch(`/api/emr/by-consultation/${consultationId}`).then(r => r.json()).then(data => {
+      if (!cancelled) setVersion(Number(data.emr_entry?.version ?? 0));
+    }).catch(() => setSaveText("Could not load EMR version"));
+    return () => { cancelled = true; };
+  }, [consultationId, emrEntryId]);
+
+  useEffect(() => {
+    if (!emrEntryId || version === null || !manualEditRef.current) return;
     const t = setTimeout(async () => {
-      await fetch(`/api/emr/${emrEntryId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(savePayload),
-      });
+      const res = await fetch(`/api/emr/${emrEntryId}`, { method: "PUT",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify(savePayload) });
+      if (!res.ok) { setSaveText("Save failed or EMR version conflict; reload"); return; }
+      const response = await res.json();
+      setVersion(Number(response.version));
+      manualEditRef.current = false;
       setSaveText(`Saved ${new Date().toLocaleTimeString("en-IN")}`);
     }, 3000);
     return () => clearTimeout(t);
@@ -65,10 +71,10 @@ export function EMRPanel({ consultationId, emrEntryId, transcriptText = "" }: Pr
           setAiSuggestions(data.icd_suggestions ?? []);
         }}
       />
-      <Input label="Chief Complaint" value={form.chief_complaint ?? ""} onChange={(e) => setForm({ ...form, chief_complaint: e.target.value })} />
-      <Input label="Symptoms (comma-separated)" value={(form.symptoms ?? []).join(", ")} onChange={(e) => setForm({ ...form, symptoms: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })} />
-      <Input label="Assessment" value={form.assessment ?? ""} onChange={(e) => setForm({ ...form, assessment: e.target.value })} />
-      <Input label="Plan" value={form.plan ?? ""} onChange={(e) => setForm({ ...form, plan: e.target.value })} />
+      <Input label="Chief Complaint" value={form.chief_complaint ?? ""} onChange={(e) => { manualEditRef.current = true; setForm({ ...form, chief_complaint: e.target.value }); }} />
+      <Input label="Symptoms (comma-separated)" value={(form.symptoms ?? []).join(", ")} onChange={(e) => { manualEditRef.current = true; setForm({ ...form, symptoms: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) }); }} />
+      <Input label="Assessment" value={form.assessment ?? ""} onChange={(e) => { manualEditRef.current = true; setForm({ ...form, assessment: e.target.value }); }} />
+      <Input label="Plan" value={form.plan ?? ""} onChange={(e) => { manualEditRef.current = true; setForm({ ...form, plan: e.target.value }); }} />
       <ICD10Search
         selected={diagnoses}
         onSelect={(item) => setDiagnoses((prev) => (prev.find((x) => x.code === item.code) ? prev : [...prev, item]))}

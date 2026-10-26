@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/Card";
 import { Badge } from "@/src/components/ui/Badge";
+import { FamilyGraphPanel } from "@/src/components/history/FamilyGraphPanel";
 import { Button } from "@/src/components/ui/Button";
 
 type HistoryPayload = {
@@ -425,6 +426,7 @@ export function PatientHistoryPanel({ consultationId, patientId }: { consultatio
           </div>
         </CardContent>
       </Card>
+      {targetPatientId ? <FamilyGraphPanel patientId={targetPatientId} consultationId={consultationId} /> : null}
     </div>
   );
 }

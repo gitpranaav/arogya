@@ -15,6 +15,8 @@ export type EMRVitals = {
 };
 
 export type EMRMedication = {
+  /** Stable server-owned row identity; optional on historical records. */
+  id?: string;
   name: string;
   dosage?: string | null;
   frequency?: string | null;
@@ -42,6 +44,10 @@ export type EMRSnapshot = {
   diagnosis_icd?: EMRDiagnosisIcd[];
   medications?: EMRMedication[];
   lab_tests_ordered?: string[];
+  history_of_present_illness?: string | null;
+  physical_examination?: string | null;
+  assessment?: string | null;
+  plan?: string | null;
   clinical_summary?: string | null;
   patient_summary?: string | null;
   needs_confirmation?: string[];
@@ -65,17 +71,31 @@ export type TranscriptSegment = {
   is_final?: boolean;
   start_ms?: number;
   end_ms?: number;
+  sequence?: number;
   language?: string | null;
   timestamp?: string;
   speaker?: string;
 };
+
+export type FieldProvenance = {
+  origin: "ai" | "clinician_entry" | "clinician_correction" | "staff_entry" | "staff_correction" | "legacy_unknown";
+  evidence_segment_ids: string[];
+  confidence: Confidence | null;
+  grounding: "lexical_support" | "unverified" | "contradicted" | "clinician_verified";
+  reviewed: boolean;
+  updated_at: string;
+  actor_id?: string;
+  actor_role?: "doctor" | "receptionist";
+};
+export type GroundingFinding = { path: string; reason: string; evidence_segment_ids: string[] };
 
 export type EMREntryDoc = {
   _id: ObjectId;
   consultation_id: ObjectId;
   snapshot?: EMRSnapshot;
   extraction_cursor?: ExtractionCursor;
-  provenance?: Record<string, unknown>;
+  provenance?: Record<string, FieldProvenance>;
+  grounding_findings?: GroundingFinding[];
   requires_review?: boolean;
   created_at: string;
   updated_at: string;

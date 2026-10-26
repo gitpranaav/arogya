@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "description": "Synthetic development fixtures only. Expected alerts refer to an active medication proposal, not mere mention. Known heuristic limitations are measured, not blessed as correct.",
+  "cases": [
+    {
+      "id": "penicillin-prescription", "allergies": ["Penicillin"],
+      "events": [{"at_ms": 0, "text": "I am starting amoxicillin 500 mg.", "final": true, "expected_alert": true}],
+      "medications": [{"name": "Amoxicillin"}], "expected_medication_alert": true,
+      "gold": [{"path": "medications[0].name", "value": "Amoxicillin"}, {"path": "medications[0].dosage", "value": "500 mg"}]
+    },
+    {
+      "id": "fragmented-penicillin", "allergies": ["Penicillin"],
+      "events": [
+        {"at_ms": 0, "text": "I am starting penicillin", "final": true, "expected_alert": true},
+        {"at_ms": 400, "text": "V potassium 500 mg", "final": true, "expected_alert": true},
+        {"at_ms": 800, "text": "four times daily for 10 days", "final": true, "expected_alert": true}
+      ],
+      "medications": [{"name": "Penicillin V potassium"}], "expected_medication_alert": true,
+      "gold": [{"path": "medications[0].name", "value": "Penicillin V potassium"}, {"path": "medications[0].dosage", "value": "500 mg"}, {"path": "medications[0].duration", "value": "10 days"}]
+    },
+    {
+      "id": "negated-order", "allergies": ["Penicillin"],
+      "events": [{"at_ms": 0, "text": "Do not prescribe amoxicillin. No medicines are prescribed today.", "final": true, "expected_alert": false}],
+      "medications": [], "expected_medication_alert": false,
+      "gold": [{"path": "medications", "absent": true}]
+    },
+    {
+      "id": "interim-correction", "allergies": ["Penicillin"],
+      "events": [
+        {"at_ms": 0, "text": "Start amoxicillin", "final": false, "expected_alert": true},
+        {"at_ms": 300, "text": "Start azithromycin", "final": false, "expected_alert": false},
+        {"at_ms": 600, "text": "Start azithromycin 500 mg once daily for 3 days", "final": true, "expected_alert": false}
+      ],
+      "medications": [{"name": "Azithromycin"}], "expected_medication_alert": false,
+      "gold": [{"path": "medications[0].name", "value": "Azithromycin"}, {"path": "medications[0].duration", "value": "3 days"}]
+    },
+    {
+      "id": "brand-augmentin", "allergies": ["Penicillin"],
+      "events": [{"at_ms": 0, "text": "Start Augmentin 625 mg twice daily.", "final": true, "expected_alert": true}],
+      "medications": [{"name": "Augmentin"}], "expected_medication_alert": true,
+      "gold": [{"path": "medications[0].name", "value": "Augmentin"}, {"path": "medications[0].dosage", "value": "625 mg"}]
+    },
+    {
+      "id": "sulfa-prescription", "allergies": ["Sulfamethoxazole"],
+      "events": [{"at_ms": 0, "text": "Start cotrimoxazole twice daily.", "final": true, "expected_alert": true}],
+      "medications": [{"name": "Cotrimoxazole"}], "expected_medication_alert": true,
+      "gold": [{"path": "medications[0].name", "value": "Cotrimoxazole"}, {"path": "medications[0].dosage", "absent": true}]
+    },
+    {
+      "id": "nsaid-prescription", "allergies": ["Ibuprofen"],
+      "events": [{"at_ms": 0, "text": "Start ibuprofen 400 mg twice daily for 2 days.", "final": true, "expected_alert": true}],
+      "medications": [{"name": "Ibuprofen"}], "expected_medication_alert": true,
+      "gold": [{"path": "medications[0].name", "value": "Ibuprofen"}, {"path": "medications[0].dosage", "value": "400 mg"}]
+    },
+    {
+      "id": "opioid-direct-match", "allergies": ["Codeine"],
+      "events": [{"at_ms": 0, "text": "Start codeine 15 mg.", "final": true, "expected_alert": true}],
+      "medications": [{"name": "Codeine"}], "expected_medication_alert": true,
+      "gold": [{"path": "medications[0].name", "value": "Codeine"}]
+    },
+    {
+      "id": "uncovered-direct-allergy", "allergies": ["Paracetamol"],
+      "events": [{"at_ms": 0, "text": "Start paracetamol 500 mg.", "final": true, "expected_alert": true}],
+      "medications": [{"name": "Paracetamol"}], "expected_medication_alert": true,
+      "gold": [{"path": "medications[0].name", "value": "Paracetamol"}]
+    },
+    {
+      "id": "family-attribution", "allergies": [],
+      "events": [{"at_ms": 0, "text": "My father has diabetes. I do not have diabetes. No medicines are prescribed.", "final": true, "expected_alert": false}],
+      "medications": [], "expected_medication_alert": false,
+      "gold": [{"path": "diagnosis_text", "absent": true}, {"path": "medications", "absent": true}]
+    },
+    {
+      "id": "hinglish-prescription", "allergies": [],
+      "events": [{"at_ms": 0, "text": "Paracetamol 500 mg din mein do baar, teen din ke liye lena.", "final": true, "expected_alert": false}],
+      "medications": [{"name": "Paracetamol"}], "expected_medication_alert": false,
+      "gold": [{"path": "medications[0].name", "value": "Paracetamol"}, {"path": "medications[0].duration", "value": "3 days"}]
+    },
+    {
+      "id": "ors-regimen", "allergies": [],
+      "events": [{"at_ms": 0, "text": "Give ORS, one sachet in one liter of water, for five sessions.", "final": true, "expected_alert": false}],
+      "medications": [{"name": "ORS"}], "expected_medication_alert": false,
+      "gold": [{"path": "medications[0].name", "value": "ORS"}]
+    },
+    {
+      "id": "partial-update", "allergies": [],
+      "initial_snapshot": {"medications": [{"name": "Paracetamol", "dosage": "500 mg", "frequency": "Once daily", "duration": "3 days"}]},
+      "events": [{"at_ms": 0, "text": "Change the paracetamol frequency to twice daily. Keep its dose and duration unchanged.", "final": true, "expected_alert": false}],
+      "medications": [{"name": "Paracetamol"}], "expected_medication_alert": false,
+      "gold": [{"path": "medications[0].dosage", "value": "500 mg"}, {"path": "medications[0].duration", "value": "3 days"}]
+    },
+    {
+      "id": "no-invented-dose", "allergies": [],
+      "events": [{"at_ms": 0, "text": "I will prescribe cetirizine. The dosage has not been decided yet.", "final": true, "expected_alert": false}],
+      "medications": [{"name": "Cetirizine"}], "expected_medication_alert": false,
+      "gold": [{"path": "medications[0].name", "value": "Cetirizine"}, {"path": "medications[0].dosage", "absent": true}]
+    },
+    {
+      "id": "historical-medication", "allergies": ["Penicillin"],
+      "events": [{"at_ms": 0, "text": "I took amoxicillin last year. No medication is prescribed today.", "final": true, "expected_alert": false}],
+      "medications": [], "expected_medication_alert": false,
+      "gold": [{"path": "medications", "absent": true}]
+    },
+    {
+      "id": "vitals", "allergies": [],
+      "events": [{"at_ms": 0, "text": "Blood pressure is 120 over 80 and pulse is 72. No medications prescribed.", "final": true, "expected_alert": false}],
+      "medications": [], "expected_medication_alert": false,
+      "gold": [{"path": "vitals.bp_systolic", "value": 120}, {"path": "vitals.bp_diastolic", "value": 80}, {"path": "vitals.pulse_rate", "value": 72}]
+    }
+  ]
+}
