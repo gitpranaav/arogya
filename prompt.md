@@ -1,10 +1,10 @@
 # MediFlow — contributor instructions
 
-Read this file, [TODO.md](TODO.md), [CODEBASE_MAP.md](CODEBASE_MAP.md), and relevant [verification notes](doc.md) before changes. Follow the Next.js rules in [AGENTS.md](AGENTS.md); [CLAUDE.md](CLAUDE.md) delegates there.
+Read this file, [TODO.md](TODO.md), [CODEBASE_MAP.md](CODEBASE_MAP.md), and relevant [verification notes](doc.md) before changes. Follow the Next.js rules in [AGENTS.md](AGENTS.md).
 
 ## Workflow
 
-1. Inspect Git status and actual source, callers, API contracts, indexes and tests. The working tree includes uncommitted implementation beyond `main` at `c488439`; preserve unrelated changes. Historical reports and branches do not override current code.
+1. Inspect Git status and actual source, callers, API contracts, indexes and tests. The working tree may include uncommitted implementation; preserve unrelated changes. Historical reports and branches do not override current code.
 2. Check tools/dependencies before claiming results. For Next.js work, read relevant installed `node_modules/next/dist/docs/` guides. Use applicable skills and current documentation when needed.
 3. Keep changes scoped. Preserve authentication, practice isolation, clinician review, allergy controls, evidence checks, transactions and auditability. Confirm consumers before deleting files.
 4. Update documentation in the same change:

@@ -217,14 +217,15 @@ export function ConsultationWorkspace({
     () => new Date(initialStartedAt ?? new Date().toISOString()),
     [initialStartedAt]
   );
-  const [elapsed, setElapsed] = useState(
-    Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000))
-  );
+  // The server and the browser must render identical initial text during hydration.
+  const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    const tick = setInterval(() => {
+    const updateElapsed = () => {
       setElapsed(Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000)));
-    }, 1000);
+    };
+    updateElapsed();
+    const tick = setInterval(updateElapsed, 1000);
     return () => clearInterval(tick);
   }, [startedAt]);
 

@@ -17,7 +17,7 @@ Next.js App Router/React UI → cookie/role/practice checks → MongoDB `cliniq`
 
 ## MongoDB collections
 
-Source-derived contracts; deployed documents/indexes were not inspected. References use ObjectIds except string extraction/rate-limit IDs and local family-node IDs. Clinical timestamps commonly use ISO strings; TTL/lease expiry uses Dates.
+Source-derived contracts; the dedicated local MongoDB 7 replica set was seeded and tested. No production records/indexes were inspected. References use ObjectIds except string extraction/rate-limit IDs and local family-node IDs. Clinical timestamps commonly use ISO strings; TTL/lease expiry uses Dates.
 
 | Collection | Relationships / content | Index definition |
 |---|---|---|
@@ -86,8 +86,8 @@ Page/layout paths are under `app/`; export names identify their main components.
 | `doctor/consultations/page.tsx` | `ConsultationsPage`: filtered/paginated encounters |
 | `doctor/consultations/[id]/page.tsx` | `ConsultationDetailPage`: encounter/transcript/EMR |
 | `doctor/consultation/[id]/page.tsx` | `ConsultationPage`: active workspace |
-| `doctor/consultations/[id]/prescription/page.tsx` | `PrescriptionPage`: printable encounter prescription |
-| `doctor/settings/page.tsx` | `DoctorSettingsPage`: profile/staff credentials |
+| `doctor/consultations/[id]/prescription/page.tsx` | `PrescriptionPage`: completed/approved issued prescription only; exact stored instructions, no inferred schedule |
+| `doctor/settings/page.tsx` | `DoctorSettingsPage`: profile/staff credentials; password UI matches API minimum |
 | `receptionist/layout.tsx` | `ReceptionistLayout`: role-gated shell |
 | `receptionist/login/page.tsx` | `ReceptionistLoginPage`: staff login |
 | `receptionist/patients/page.tsx` | `ReceptionistPatientsPage`: scoped intake dashboard |
@@ -97,12 +97,12 @@ Components below are relative to `src/components/`. Unless stated otherwise, the
 | File(s) | Props/data → behavior / dependencies |
 |---|---|
 | `ErrorBoundary.tsx` | Children → render fallback; React, Button |
-| `doctor/DoctorShell.tsx`, `doctor/Header.tsx`, `doctor/Sidebar.tsx` | Profile/route/children → navigation shell |
+| `doctor/DoctorShell.tsx`, `doctor/Header.tsx`, `doctor/Sidebar.tsx` | Profile/route/children → navigation shell; header/sidebar hidden and content unclipped in print media |
 | `doctor/AddPatientModal.tsx`, `doctor/PatientsClient.tsx` | Patient list/intake → filtering and patient-create API |
 | `doctor/PatientDetailTabs.tsx` | Patient/history → demographic/visit tabs |
 | `doctor/dashboard/StartConsultationModal.tsx` | Patients/visit/follow-up → consultation-create API |
 | `doctor/dashboard/ConsultationSparkline.tsx` | Encounter points → Recharts line chart |
-| `doctor/consultation/ConsultationWorkspace.tsx` | Encounter props → STT, extraction, autosave, stop/flush, review/completion; preserves dirty edits |
+| `doctor/consultation/ConsultationWorkspace.tsx` | Encounter props → STT, extraction, autosave, stop/flush, review/completion; preserves dirty edits; timer initializes identically on server/client |
 | `doctor/consultation/ClinicalReviewDialog.tsx` | Encounter/callbacks → evidence/allergy/family review, approval, 409 reload, completion retry |
 | `doctor/consultation/PrescriptionPrintButton.tsx` | Click → browser print |
 | `emr/EMRLivePanel.tsx` | Snapshot/version/allergies → serialized autosave, stable medication rows, catalog/ICD lookup, safety warnings |
@@ -145,7 +145,7 @@ Paths are relative to `src/lib/`. Public symbols shown are the main navigation p
 | `emr/merge.ts` | `parsePath`, `applyEMROps`: validated operations → stable-ID snapshot mutations |
 | `emr/normalizeMedications.ts` | `normalizeMedicationEntry`, `normalizeMedicationsArray`: raw rows → standardized medications |
 | `emr/medicationIdentity.ts` | `createMedicationId`, `ensureMedicationIds`, `reconcileMedicationIds`, `medicationIndexById`: stable IDs, deterministic legacy hydration |
-| `emr/grounding.ts` | `evaluateClaim`, `readProvenance`, `applyProvenanceChanges`, `groundDeltaOps`, `changedClinicalFields`, `protectClinicianPaths`, `groundFinalSnapshot`: lexical support, per-field evidence and protected edits |
+| `emr/grounding.ts` | `evaluateClaim`, `readProvenance`, `applyProvenanceChanges`, `groundDeltaOps`, `changedClinicalFields`, `protectClinicianPaths`, `groundFinalSnapshot`: lexical support including single-digit quantities, clinical-field evidence (excluding storage metadata) and protected edits |
 | `emr/extractDeltaPrompt.ts` | `EXTRACT_DELTA_SYSTEM_PROMPT`, `EXTRACT_FULL_SYSTEM_PROMPT`: evidence/ID-aware Groq prompts, optional family drafts |
 | `emr/summaries.ts` | `buildClinicalSummary`, `buildPatientSummary`: snapshot → derived, unverified text |
 | `extraction/batching.ts` | `chooseTranscriptBatch`, `pendingFromCursor`, `BATCH_POLICY`: finalized speech/time/cursor → bounded sequential batch |
@@ -171,17 +171,21 @@ Paths are relative to `src/lib/`. Public symbols shown are the main navigation p
 | `scripts/seed/demo-stage9.mjs` | Guarded local URI + distinct test passwords → two synthetic practices; revokes old demo sessions |
 | `scripts/verify-mongo.mjs` | MONGODB_TEST_URI → five primitive assertions in random disposable DB; cleans up its DB |
 | `scripts/verify-stage9-api.mjs` | Loopback app/test passwords → scoped HTTP smoke assertions; synthetic writes |
+| `scripts/verify-system.mjs` | Local production server + MongoDB + explicit Groq fixture → 72 integration checks; guarded fault injection and browser review fixture |
+| `scripts/verify-browser.mjs` | `playwright-cli` + demo credentials → Chromium UI results and ignored screenshots; requires fresh system fixture |
+| `scripts/verify-providers.mjs` | Test keys + macOS speech synthesis + Chromium → live synthetic Deepgram/Groq checks, no clinical accuracy claim |
+| `eval/results/system-verification.json`, `browser-verification.json`, `provider-verification.json` | Dated runtime results with exact checks and scope |
 | `scripts/benchmark-stage6.mjs` | Synthetic batch/context simulation; no live tokens/costs |
 | `scripts/eval-stage9.mjs` | Offline deterministic replay → result JSON; no DB/provider calls |
 | `eval/fixtures/baseline.json` | Original 16 development cases/20 speech events, copied from baseline branch |
 | `eval/results/stage9-offline.json` | Saved synthetic confusion counts/timings; live metrics null |
-| `tests/security-regressions.mjs` | 77 security/clinical/grounding/concurrency tests with TS transpilation and mocks |
+| `tests/security-regressions.mjs` | 80 security/clinical/grounding/concurrency tests with TS transpilation and mocks |
 | `tests/stage6-regressions.mjs` | 15 batching/context/history/cache tests |
-| `tests/stage7-regressions.mjs` | 20 family graph/proposal/route tests; compiler-path workaround in README |
+| `tests/stage7-regressions.mjs` | 20 family graph/proposal/route tests; local TypeScript dependency by default |
 | `tests/stage8-regressions.mjs` | 18 sign-off/fingerprint/blocker/rollback tests |
 | `tests/stage9-regressions.mjs` | Four prescribing/evaluation/local-demo-guard tests |
 
-Seed/backfill scripts mutate their selected database; inspect them and use disposable targets. No seed or migration was run during cleanup.
+Seed/backfill scripts mutate their selected database; inspect them and use disposable targets. Cleanup ran no seeds; the subsequent setup task seeded only the dedicated disposable instance. No legacy migration was run.
 
 ## Configuration and documentation
 
@@ -189,8 +193,9 @@ Seed/backfill scripts mutate their selected database; inspect them and use dispo
 - `tsconfig.json`, `next.config.ts`, `postcss.config.mjs`: TypeScript, Next.js and Tailwind configuration.
 - `middleware.ts`: page guard via legacy-named auth helper. Next 16 emits a migration-to-proxy warning.
 - `app/globals.css`, `app/favicon.ico`, `public/next.svg`, `public/vercel.svg`, `public/caduceus.svg`: active styling/assets.
-- `.gitignore`: dependencies, environment files, build output and generated type caches.
+- `.env.example`: safe loopback/test configuration template; `.env.local` holds Git-ignored credentials. `GROQ_MODEL` defaults to `openai/gpt-oss-120b` in both extraction routes and participates in final cache identity.
+- `.gitignore`: dependencies, real environment files, build output, generated type caches and `.playwright-cli/`; retains `.env.example`.
 - `README.md`: setup/demo/commands; `TODO.md`: tasks; `doc.md`: evidence; `CODEBASE_MAP.md`: this inventory.
-- `AGENTS.md` → `prompt.md`, plus delegating `CLAUDE.md`: contributor instructions.
+- `AGENTS.md` → `prompt.md`: contributor instructions. The user removed `CLAUDE.md` after cleanup.
 
 Removed paths and documentation merge destinations are recorded once in [doc.md](doc.md#repository-cleanup).

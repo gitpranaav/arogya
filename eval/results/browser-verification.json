@@ -1,11 +1,39 @@
 {
-  "status": "failed",
+  "status": "passed",
   "checks": [
-    "unauthenticated doctor page redirects to login"
+    "unauthenticated doctor page redirects to login",
+    "doctor login and dashboard render",
+    "patient form validates required fields",
+    "doctor creates patient through browser form",
+    "patient list search finds newly registered patient",
+    "patient details and history page render",
+    "clinic settings save through browser",
+    "password UI enforces ten-character minimum",
+    "mobile dashboard renders",
+    "mobile dashboard has no page-level horizontal overflow",
+    "doctor logout returns to login",
+    "receptionist login renders scoped dashboard",
+    "receptionist starts consultation through intake UI",
+    "receptionist intake EMR and completion marker persist",
+    "receptionist is redirected away from doctor routes",
+    "doctor workspace loads receptionist intake",
+    "EMR browser autosave succeeds",
+    "EMR changes survive browser reload",
+    "clinical sign-off requires explicit confirmations",
+    "review becomes ready after explicit confirmations",
+    "doctor reviews and completes consultation through browser",
+    "completed consultation stays locked after reload",
+    "consultation list renders",
+    "completed encounter details render",
+    "print media hides application header and navigation",
+    "approved prescription renders in print media",
+    "no uncaught browser JavaScript errors"
   ],
   "errors": [],
-  "failure": "page.waitForURL: Timeout 15000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation to \"**/doctor\" until \"load\"\n============================================================",
-  "url": "http://127.0.0.1:3000/login",
-  "executed_at": "2026-10-26T12:40:43.256Z",
+  "synthetic_records": {
+    "patient_id": "6adf90b1179b0e176a96149a",
+    "consultation_id": "6adf90b2179b0e176a96149c"
+  },
+  "executed_at": "2026-10-26T17:41:10.789Z",
   "scope": "real Chromium and local production application; no microphone/provider calls"
 }

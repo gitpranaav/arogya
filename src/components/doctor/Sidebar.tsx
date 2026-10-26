@@ -110,7 +110,7 @@ export function Sidebar({ collapsed, mobileOpen, setMobileOpen, onToggleCollapse
       <motion.aside
         animate={{ width: collapsed ? 64 : 240 }}
         transition={{ duration: 0.22, ease: "easeOut" }}
-        className="hidden h-screen shrink-0 border-r border-[hsl(var(--border))] bg-[hsl(var(--bg-secondary))] lg:block"
+        className="hidden h-screen shrink-0 border-r border-[hsl(var(--border))] bg-[hsl(var(--bg-secondary))] lg:block print:hidden"
       >
         <SidebarContent
           collapsed={collapsed}
@@ -121,7 +121,7 @@ export function Sidebar({ collapsed, mobileOpen, setMobileOpen, onToggleCollapse
       </motion.aside>
 
       {mobileOpen ? (
-        <div className="fixed inset-0 z-40 lg:hidden">
+        <div className="fixed inset-0 z-40 lg:hidden print:hidden">
           <button
             aria-label="Close navigation overlay"
             className="absolute inset-0 bg-black/40"

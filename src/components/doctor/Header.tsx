@@ -45,7 +45,7 @@ export function Header({ collapsed, onToggleCollapsed, onOpenMobileMenu, doctorN
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-[hsl(var(--border))] bg-[hsl(var(--bg-primary)/0.88)] px-4 backdrop-blur md:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-[hsl(var(--border))] bg-[hsl(var(--bg-primary)/0.88)] px-4 backdrop-blur md:px-6 print:hidden">
       <div className="flex items-center gap-2 md:gap-3">
         <button
           onClick={onOpenMobileMenu}

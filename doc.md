@@ -2,7 +2,35 @@
 
 Updated 2026-10-26. Current decision: **release verification incomplete; not production/clinically validated**. [TODO.md](TODO.md) owns release gates; [README.md](README.md) owns setup/demo commands; [CODEBASE_MAP.md](CODEBASE_MAP.md) owns architecture and collection contracts.
 
-## Current Mac verification — 2026-10-26
+## Project setup and runtime verification — 2026-10-26
+
+Scope expanded to full local setup and testing. Environment: macOS, Node 26.7.0, npm 11.19.0, Next 16.2.2, MongoDB 7 replica set `rs0` in Docker container `mediflow-demo-rs`, loopback port 27029. Production app: `http://127.0.0.1:3000`. All records/audio were synthetic; no production database was accessed. Local credentials are Git-ignored.
+
+| Command / check | Observed result |
+|---|---|
+| `npm run typecheck` | **Pass**, exit 0; all 15 original diagnostics fixed without bypasses. |
+| `NEXT_TELEMETRY_DISABLED=1 npm run build` | **Pass**, exit 0; production routes compile. Middleware-to-proxy deprecation remains. |
+| `npm test` | **Pass, 137/137** synthetic/mocked regressions; no compiler-path override. |
+| `seed:core`, `seed:icd10`, `seed:medications`, `demo:seed` | **Pass**; local indexes, 26 ICD codes, 123 catalog products and two synthetic practices. |
+| `npm run verify:mongo` | **Pass, 5/5** real replica-set primitive checks. |
+| `npm run verify:stage9:api` | **Pass, 14/14** HTTP smoke checks. |
+| `npm run verify:system` | **Pass, 72/72** real database/production HTTP checks with a local Groq fixture. |
+| `npm run verify:browser` | **Pass, 27/27** Chromium checks; no uncaught JavaScript errors. |
+| `npm run verify:providers` | **Pass, 4/4** live checks: medical file transcription, temporary grant + Chromium WebSocket, Groq delta and final extraction. |
+
+Runtime artifacts: [system](eval/results/system-verification.json), [browser](eval/results/browser-verification.json), [providers](eval/results/provider-verification.json). Screenshots are local, under `.playwright-cli/`. Provider confidence is a service output, not measured accuracy.
+
+Confirmed fixes: typed MongoDB/string IDs and nullable records; Deepgram accepted-only response handling; portable test compiler; seed/verification environment loading; staff password minimum; normalized medication metadata causing final extraction failure; lost single-digit evidence quantities; consultation timer hydration mismatch; navigation leaking into printed prescriptions. Printing now requires a completed encounter and issued approval metadata, reads the stored prescription, and adds no inferred dose schedule or generic advice. Tests reject active/cross-practice printing and prove later EMR changes cannot alter the issued medication output.
+
+Live Groq initially returned `404 model_not_found` for `llama-3.3-70b-versatile`. The account's authenticated model list and [Groq model documentation](https://console.groq.com/docs/structured-outputs) support the selected configurable default `openai/gpt-oss-120b`; final cache identity includes the model. Empty `.env.local` entries had masked provider keys in `.env`; the local entries were populated without logging secrets. Deepgram uses its [temporary-token flow](https://developers.deepgram.com/reference/auth/tokens/grant). A Node 26 experimental HTTP/2 WebSocket run timed out; the final test uses Chromium and received finalized words with a normal close.
+
+The system suite verifies practice/role isolation, same-version contention, audit-failure rollback, graph conflicts, immutable transcript retries, extraction replay/backoff/expired-lease recovery, malformed AI rejection, stale approval, concurrent completion (one prescription/event), history synchronization, hash-linked audit and receptionist session revocation. Browser coverage includes intake, search/settings, mobile dashboard, autosave/reload, explicit findings/allergy/prescription review, completion and print media. These suites are separate from live audio capture through the app's recorder.
+
+Docker Desktop stopped during an early run and was restarted. Repeated synthetic logins also demonstrated the real rate limiter's 429 response; no application limits were disabled. Test harness selector/timing failures were corrected to wait for actual form hydration and visible completion state.
+
+**Still incomplete:** actual recorder permission/pause/reconnect/expiry scenarios, multi-tab UI recovery, legacy migrations, broader provider/load testing, and qualified clinical/privacy review. Header Safety alerts and Profile actions are placeholders; reception lacks logout UI and links patient details to doctor-only pages. Allergy detection still misses fixture cases below. **Next P0:** pharmacist-reviewed terminology corrections and held-out evaluation alongside remaining runtime acceptance; do not treat successful smoke tests as clinical approval.
+
+## Earlier cleanup verification — 2026-10-26
 
 Scope: repository/database-code review and file/documentation cleanup, as clarified by the user. Environment: macOS, Node **26.7.0**, npm **11.19.0**, Next **16.2.2**; existing uncommitted implementation preserved. No live database inspection or database writes were requested/performed. No local connection or provider credentials were configured.
 
@@ -29,7 +57,7 @@ Confirmed type errors:
 | `src/lib/clinical/reviewStateServer.ts` | Two untyped MongoDB documents do not satisfy review-policy shapes |
 | `src/lib/extraction/history.ts` | Three callback parameter types require fields absent from generic MongoDB document types |
 
-These failures were reproduced before file deletion and left for a focused implementation change. The earlier “no demonstrated application compile error” assessment is superseded by this installed Mac check. **Next P0:** correct these types, then pass the full typecheck/build before database/provider/E2E release verification.
+These failures predated cleanup and were fixed in the subsequent setup task above. They are retained here as historical provenance.
 
 ## Repository cleanup
 
@@ -52,7 +80,7 @@ Markdown consolidated from **12 files to 7**, reducing repository documentation 
 | `EVALUATION_REPORT.md` | Metrics, limitations and false negatives below; raw fixture/results retained |
 | `RELEASE_CHECKLIST.md` | Deduplicated release gates in TODO; observed checks here |
 
-`prompt.md` was shortened while retaining workflow/safety requirements. Already concise `AGENTS.md` (including the Next.js rules) and `CLAUDE.md` are unchanged.
+`prompt.md` was shortened while retaining workflow/safety requirements. At cleanup, `AGENTS.md` (including Next.js rules) and `CLAUDE.md` were unchanged. The user subsequently removed `CLAUDE.md`; its obsolete links were removed.
 
 Recovery snapshot of pre-cleanup repository files, hashes and Git status:
 `/var/folders/g3/4tl86_052j7g3hybh3k04w6m0000gn/T/mediflow-cleanup-6_yn5u7g`.
@@ -97,4 +125,4 @@ The following results came from earlier isolated Linux runs (Node 22.16.0, npm 1
 
 Historical targeted checks used temporary declarations and cannot establish full-project validity. Earlier registry and missing-tool blocks apply to those environments; the current Mac results above take precedence.
 
-A functional demo still requires build, disposable database/API tests, real synthetic provider/browser review-to-prescription execution and recovery evidence. Production additionally requires qualified clinical/pharmacy and privacy/security approval.
+The setup results above supersede the historical build/database/provider/browser blockers. Production still requires the open acceptance gates in TODO and qualified clinical/pharmacy and privacy/security approval.

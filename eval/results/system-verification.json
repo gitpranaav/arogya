@@ -1,5 +1,5 @@
 {
-  "executed_at": "2026-10-26T12:40:02.021Z",
+  "executed_at": "2026-10-26T17:40:50.239Z",
   "database": "real local MongoDB replica set",
   "application": "real production Next.js HTTP server",
   "provider": "local Groq HTTP fixture; no live AI or speech calls",
@@ -80,9 +80,9 @@
   "status": "passed",
   "provider_fixture_calls": 7,
   "synthetic_records": {
-    "patient_id": "6adf4a23ea67dda4a8396145",
-    "completed_consultation_id": "6adf4a23ea67dda4a8396147",
-    "active_consultation_id": "6adf4a26ea67dda4a8396156",
-    "review_consultation_id": "6adf4a26ea67dda4a839615f"
+    "patient_id": "6adf90a4189283743850659d",
+    "completed_consultation_id": "6adf90a4189283743850659f",
+    "active_consultation_id": "6adf90a518928374385065ae",
+    "review_consultation_id": "6adf90a618928374385065b7"
   }
 }

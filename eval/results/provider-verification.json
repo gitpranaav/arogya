@@ -1,7 +1,35 @@
 {
-  "executed_at": "2026-10-26T12:40:18.781Z",
+  "executed_at": "2026-10-26T17:35:08.938Z",
   "scope": "live Deepgram/Groq; synthetic audio/text, no clinical accuracy claim",
-  "checks": [],
-  "setup_failure": "HTTP 429: Too many attempts; try later",
-  "status": "failed"
+  "checks": [
+    {
+      "name": "live prerecorded medical transcription",
+      "status": "passed",
+      "words": 10,
+      "confidence": 1,
+      "contains_headache": true
+    },
+    {
+      "name": "temporary grant and live WebSocket transcription",
+      "status": "passed",
+      "close_code": 1000,
+      "finalized_words": 10,
+      "client": "Chromium",
+      "grant_ttl_seconds": 30
+    },
+    {
+      "name": "live Groq incremental extraction",
+      "status": "passed",
+      "version": 1,
+      "snapshot_fields": 6
+    },
+    {
+      "name": "live Groq final extraction",
+      "status": "passed",
+      "version": 2,
+      "grounding_findings": 2
+    }
+  ],
+  "synthetic_consultation_id": "6adf8f4d41675ea72714dd50",
+  "status": "passed"
 }

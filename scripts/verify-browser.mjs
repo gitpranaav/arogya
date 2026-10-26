@@ -29,7 +29,7 @@ const scenario = `async page => {
   const name = 'SYNTHETIC Browser ' + Date.now();
   const phone = '+1555' + String(Date.now()).slice(-7);
   const check = (ok, label) => { if (!ok) throw new Error(label); checks.push(label); };
-  page.on('pageerror', error => errors.push(error.message));
+  page.on('pageerror', error => errors.push(page.url() + ': ' + error.message));
   const doctorLogin = async () => {
     await page.goto(base + '/login');
     await page.getByLabel('Email', { exact: true }).fill('demo-doctor-a@mediflow.invalid');
@@ -122,12 +122,15 @@ const scenario = `async page => {
     await dialog.getByRole('checkbox', { name: "I personally verified the patient's allergy status." }).check();
     await dialog.getByRole('checkbox', { name: 'I checked medication identities, instructions, and prescribing safety.' }).check();
     await dialog.getByRole('checkbox', { name: /I reviewed this entire EMR and approve version/ }).check();
+    // These two findings are deliberately unverified derived summaries in the synthetic fixture.
+    await dialog.getByRole('checkbox', { name: /^clinical_summary: Derived summary requires clinician verification/ }).check();
+    await dialog.getByRole('checkbox', { name: /^patient_summary: Derived summary requires clinician verification/ }).check();
     if (!await complete.isEnabled()) throw new Error('Review remains blocked after confirmations: ' + (await dialog.innerText()));
     check(true, 'review becomes ready after explicit confirmations');
     const completion = page.waitForResponse(r => r.url().endsWith('/api/consultations/' + reviewId) && r.request().method() === 'PATCH');
     await complete.click();
     check((await completion).status() === 200, 'doctor reviews and completes consultation through browser');
-    await page.getByText('Consultation completed with doctor-approved EMR', { exact: true }).waitFor();
+    await page.getByText('Completed', { exact: true }).waitFor();
     await page.reload();
     check(await page.getByRole('button', { name: 'Review & Complete', exact: true }).isDisabled(), 'completed consultation stays locked after reload');
     await page.goto(base + '/doctor/consultations');
@@ -139,6 +142,8 @@ const scenario = `async page => {
     await page.goto(base + '/doctor/consultations/' + completedId + '/prescription');
     await page.getByText('Paracetamol', { exact: false }).first().waitFor();
     await page.emulateMedia({ media: 'print' });
+    check(!await page.getByRole('button', { name: 'Profile menu', exact: true }).isVisible() &&
+      !await page.getByRole('link', { name: 'Dashboard', exact: true }).isVisible(), 'print media hides application header and navigation');
     await page.screenshot({ path: '.playwright-cli/mediflow-prescription.png', fullPage: true });
     check(true, 'approved prescription renders in print media');
     check(errors.length === 0, 'no uncaught browser JavaScript errors');

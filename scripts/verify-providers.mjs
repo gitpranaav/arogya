@@ -1,5 +1,5 @@
 /** Opt-in live provider smoke test: short synthetic audio and fictional clinical text only.
- * Requires local demo, test provider keys, macOS say/afconvert. Makes billable provider calls.
+ * Requires local demo, test provider keys, playwright-cli and macOS say/afconvert. Makes billable provider calls.
  */
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
@@ -61,10 +61,12 @@ try {
       offset += 8 + length + length % 2;
     }
     assert.ok(pcm?.length);
-    const result = await new Promise((resolve, reject) => {
-      const socket = new WebSocket('wss://api.deepgram.com/v1/listen?model=nova-3&language=hi&encoding=linear16&sample_rate=16000&channels=1&interim_results=true&endpointing=300', ['bearer', grant.token]);
+    // Exercise the actual browser WebSocket implementation; Node 26's HTTP/2 client is experimental.
+    const streamAudio = ({ token, encoded }) => new Promise(resolve => {
+      const pcm = Uint8Array.from(atob(encoded), character => character.charCodeAt(0));
+      const socket = new WebSocket('wss://api.deepgram.com/v1/listen?model=nova-3&language=hi&encoding=linear16&sample_rate=16000&channels=1&interim_results=true&endpointing=300', ['bearer', token]);
       let finalWords = 0, interval;
-      const timer = setTimeout(() => { socket.close(); reject(new Error('WebSocket transcription timeout')); }, 30000);
+      const timer = setTimeout(() => { clearInterval(interval); socket.close(); resolve({ error: 'WebSocket transcription timeout', finalized_words: finalWords }); }, 30000);
       socket.addEventListener('open', () => {
         let offset = 0;
         interval = setInterval(() => {
@@ -76,16 +78,25 @@ try {
       socket.addEventListener('message', event => {
         try { const data = JSON.parse(String(event.data));
           if (data.type === 'Results' && data.is_final) finalWords += data.channel?.alternatives?.[0]?.words?.length ?? 0;
-        } catch { /* Non-result messages are not transcription evidence. */ }
+        } catch { /* Ignore non-result messages. */ }
       });
-      socket.addEventListener('error', () => { clearTimeout(timer); clearInterval(interval); reject(new Error('WebSocket connection failed')); });
+      socket.addEventListener('error', () => { clearTimeout(timer); clearInterval(interval); resolve({ error: 'WebSocket connection failed' }); });
       socket.addEventListener('close', event => {
         clearTimeout(timer); clearInterval(interval);
-        if (event.code !== 1000 || !finalWords) reject(new Error(`WebSocket closed ${event.code}; finalized word count ${finalWords}`));
-        else resolve({ finalized_words: finalWords, grant_ttl_seconds: grant.expires_in });
+        resolve({ close_code: event.code, finalized_words: finalWords });
       });
     });
-    return result;
+    const script = join(directory, 'stream.js'), session = 'mediflow-live-provider';
+    await writeFile(script, `async page => page.evaluate(${streamAudio.toString()}, ${JSON.stringify({ token: grant.token, encoded: pcm.toString('base64') })})`, { mode: 0o600 });
+    let result;
+    try {
+      await run('playwright-cli', [`-s=${session}`, 'open', base + '/login'], { timeout: 15000 });
+      const execution = await run('playwright-cli', [`-s=${session}`, '--raw', 'run-code', `--filename=${script}`], { timeout: 45000, maxBuffer: 2 * 1024 * 1024 });
+      result = JSON.parse(execution.stdout);
+    } catch { throw new Error('Chromium WebSocket runner failed'); }
+    finally { await run('playwright-cli', [`-s=${session}`, 'close']).catch(() => {}); }
+    assert.ok(!result.error && result.close_code === 1000 && result.finalized_words > 0, JSON.stringify(result));
+    return { ...result, client: 'Chromium', grant_ttl_seconds: grant.expires_in };
   });
   // Use fixed text to isolate Groq/schema behavior from speech-recognition accuracy.
   const segment = { id: 'live-synthetic-1', text: spoken, is_final: true, sequence: 1 };
